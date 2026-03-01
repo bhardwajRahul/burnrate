@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+
+# Cursor IDE
+.cursor/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+backend/venv/
+
+# Environment
+.env
+.env.local
+
+# Database (SQLite)
+*.db
+*.sqlite
+*.sqlite3
+backend/data/*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output
+frontend-neopop/dist/
+
+# PDF unlock temp files
+*_unlocked.pdf
+
+# Logs
+*.log
+logs/
+
+# Python testing / type-checking
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Editor / IDE (optional; uncomment if you don't share settings)
+# .idea/
+# .vscode/
+
+# Temp / backup
+*.bak
+*.tmp
+*.swp
+*~
