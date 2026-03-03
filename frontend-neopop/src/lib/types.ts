@@ -30,6 +30,7 @@ export interface Statement {
   periodEnd: string;
   transactionCount: number;
   totalSpend: number;
+  status: 'success' | 'parse_error';
   importedAt: string;
 }
 

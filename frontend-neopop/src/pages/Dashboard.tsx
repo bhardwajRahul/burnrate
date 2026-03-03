@@ -85,9 +85,15 @@ const StyledLink = styled(Link)`
 
 const ClickableSpend = styled.div`
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  border-radius: 12px;
   &:hover {
-    opacity: 0.85;
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 8px 24px rgba(255, 255, 255, 0.06);
+  }
+  &:active {
+    transform: translateY(0) scale(0.99);
+    box-shadow: none;
   }
 `;
 
@@ -332,6 +338,10 @@ function DashboardContent() {
         toast.warning(
           result.message ?? 'Statement belongs to a card that has not been added yet. Add the card in Settings to process it.'
         );
+      } else if (result.status === 'parse_error') {
+        toast.warning(
+          result.message ?? 'Could not extract transactions from this statement. The PDF format may not be supported yet.'
+        );
       } else if (
         result.message?.toLowerCase().includes('unlock') ||
         result.message?.toLowerCase().includes('password')
@@ -362,6 +372,11 @@ function DashboardContent() {
       if (result.card_not_found > 0) {
         toast.warning(
           `${result.card_not_found} statement(s) skipped — card not added yet. Add the card in Settings to process them.`
+        );
+      }
+      if (result.parse_error > 0) {
+        toast.warning(
+          `${result.parse_error} statement(s) could not be parsed. Check Customize → Reparse/Remove for details.`
         );
       }
       if (result.success === 0 && result.card_not_found === 0) {

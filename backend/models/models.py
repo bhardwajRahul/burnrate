@@ -70,6 +70,7 @@ class Statement(Base):
     total_spend = Column(Float, default=0.0)
     total_amount_due = Column(Float, nullable=True)
     credit_limit = Column(Float, nullable=True)
+    status = Column(String(20), nullable=False, default="success")
     imported_at = Column(DateTime, default=datetime.utcnow)
 
     transactions = relationship("Transaction", back_populates="statement", cascade="all, delete-orphan")

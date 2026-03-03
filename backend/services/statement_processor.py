@@ -178,6 +178,31 @@ def process_statement(
                 "count": 0,
             }
 
+        # Early card check: skip before parsing if no cards from this
+        # bank are registered at all — avoids wasting time on PDF parsing.
+        registered_cards = db_session.query(Card).filter(Card.bank == bank).all()
+        if not registered_cards:
+            # Clean up unlocked temp file before returning
+            if working_path != pdf_path and os.path.isfile(working_path):
+                try:
+                    os.remove(working_path)
+                except OSError:
+                    pass
+            logger.warning(
+                "Skipping statement — no %s cards registered", bank,
+            )
+            return {
+                "status": "card_not_found",
+                "message": (
+                    f"No {bank.upper()} cards have been added yet. "
+                    f"Add your card in Settings to process these statements."
+                ),
+                "count": 0,
+                "period": None,
+                "bank": bank,
+                "card_last4": None,
+            }
+
         # Parse — use dedicated parser if available, else generic
         if bank in PARSERS:
             parser = PARSERS[bank]()
@@ -219,10 +244,68 @@ def process_statement(
                     "card_last4": card_last4,
                 }
         else:
-            cards = db_session.query(Card).filter(Card.bank == bank).all()
-            if len(cards) == 1:
-                card_last4 = cards[0].last4
-                card_id = cards[0].id
+            if len(registered_cards) == 1:
+                card_last4 = registered_cards[0].last4
+                card_id = registered_cards[0].id
+            else:
+                logger.warning(
+                    "Skipping statement — parser could not determine card and "
+                    "multiple %s cards are registered",
+                    bank,
+                )
+                return {
+                    "status": "card_not_found",
+                    "message": (
+                        f"Could not determine which {bank.upper()} card this "
+                        f"statement belongs to. Multiple cards are registered "
+                        f"for this bank."
+                    ),
+                    "count": 0,
+                    "period": None,
+                    "bank": bank,
+                    "card_last4": None,
+                }
+
+        # Detect parse failures: if the parser returned nothing useful,
+        # record the statement with status='parse_error' so the file hash
+        # prevents re-processing, while keeping it visible for user action.
+        is_parse_error = (
+            len(parsed.transactions) == 0
+            and parsed.period_start is None
+            and parsed.period_end is None
+        )
+
+        if is_parse_error:
+            statement = Statement(
+                bank=bank,
+                card_last4=card_last4,
+                period_start=None,
+                period_end=None,
+                file_hash=file_hash,
+                file_path=pdf_path,
+                transaction_count=0,
+                total_spend=0.0,
+                total_amount_due=getattr(parsed, "total_amount_due", None),
+                credit_limit=getattr(parsed, "credit_limit", None),
+                status="parse_error",
+            )
+            db_session.add(statement)
+            db_session.commit()
+
+            logger.warning(
+                "Parse error for %s (%s ...%s): no transactions or period extracted",
+                pdf_path, bank, card_last4,
+            )
+            return {
+                "status": "parse_error",
+                "message": (
+                    f"Could not extract transactions from this {bank.upper()} statement. "
+                    f"The PDF format may not be supported yet."
+                ),
+                "count": 0,
+                "period": None,
+                "bank": bank,
+            }
 
         # Create Statement record
         total_decimal = sum(
@@ -241,6 +324,7 @@ def process_statement(
             total_spend=total_spend,
             total_amount_due=getattr(parsed, "total_amount_due", None),
             credit_limit=getattr(parsed, "credit_limit", None),
+            status="success",
         )
         db_session.add(statement)
         db_session.flush()

@@ -19,7 +19,7 @@ import {
 import type { Statement } from '@/lib/types';
 import type { CategoryResponse, TagDefinitionResponse } from '@/lib/api';
 import { toast } from '@/components/Toast';
-import { RefreshCw, Palette, X, Trash2, Tag as TagIcon, Plus } from 'lucide-react';
+import { RefreshCw, Palette, X, Trash2, Tag as TagIcon, Plus, AlertTriangle } from 'lucide-react';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { CloseButton } from '@/components/CloseButton';
 import styled from 'styled-components';
@@ -456,77 +456,119 @@ export function ReparseRemoveModal({ open, onClose }: { open: boolean; onClose: 
             </Typography>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {statements.map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    padding: '14px 16px',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: 12,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 8,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Column alignItems="stretch" gap={5}>
-                      <Typography fontType={FontType.BODY} fontSize={14} fontWeight={FontWeights.SEMI_BOLD} color={mainColors.white}>
-                        {s.bank.toUpperCase()} ...{s.cardLast4}
-                      </Typography>
-                      <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginTop: 2 }}>
-                        Period: {fmt(s.periodStart)} – {fmt(s.periodEnd)}
-                      </Typography>
-                      <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginTop: 2 }}>
-                        {s.transactionCount} transactions
-                      </Typography>
-                    </Column>
-                    <Column alignItems="center" gap={2}>
-                    <Row alignItems='center' justifyContent="space-evenly" gap={20}>
-                      <Button
-                        variant="primary"
-                        kind="elevated"
-                        size="small"
-                        colorMode="dark"
-                        onClick={() => handleReparse(s.id)}
-                        disabled={!!actioning}
-                        style={{ minWidth: 'auto', marginRight: 10 }}
-                      >
-                        <Row
-                          gap={4}
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <RefreshCw size={14} style={{ marginRight: 5 }} />
-                          Refresh
+              {[...statements]
+                .sort((a, b) => {
+                  if (a.status === 'parse_error' && b.status !== 'parse_error') return -1;
+                  if (a.status !== 'parse_error' && b.status === 'parse_error') return 1;
+                  return 0;
+                })
+                .map((s) => {
+                  const isError = s.status === 'parse_error';
+                  return (
+                    <div
+                      key={s.id}
+                      style={{
+                        padding: '14px 16px',
+                        border: isError
+                          ? '1px solid rgba(229,161,0,0.4)'
+                          : '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 12,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                        background: isError ? 'rgba(229,161,0,0.04)' : 'transparent',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Column alignItems="stretch" gap={5}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Typography fontType={FontType.BODY} fontSize={14} fontWeight={FontWeights.SEMI_BOLD} color={mainColors.white}>
+                              {s.bank.toUpperCase()} ...{s.cardLast4}
+                            </Typography>
+                            {isError && (
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  padding: '2px 8px',
+                                  borderRadius: 6,
+                                  background: 'rgba(229,161,0,0.15)',
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  color: '#E5A100',
+                                  lineHeight: '16px',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                <AlertTriangle size={11} />
+                                Parse Error
+                              </span>
+                            )}
+                          </div>
+                          {isError ? (
+                            <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(229,161,0,0.7)" style={{ marginTop: 2 }}>
+                              Could not extract data from this PDF. Try reparsing.
+                            </Typography>
+                          ) : (
+                            <>
+                              <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginTop: 2 }}>
+                                Period: {fmt(s.periodStart)} – {fmt(s.periodEnd)}
+                              </Typography>
+                              <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginTop: 2 }}>
+                                {s.transactionCount} transactions
+                              </Typography>
+                            </>
+                          )}
+                        </Column>
+                        <Column alignItems="center" gap={2}>
+                        <Row alignItems='center' justifyContent="space-evenly" gap={20}>
+                          <Button
+                            variant="primary"
+                            kind="elevated"
+                            size="small"
+                            colorMode="dark"
+                            onClick={() => handleReparse(s.id)}
+                            disabled={!!actioning}
+                            style={{ minWidth: 'auto', marginRight: 10 }}
+                          >
+                            <Row
+                              gap={4}
+                              alignItems="center"
+                              justifyContent="center"
+                            >
+                              <RefreshCw size={14} style={{ marginRight: 5 }} />
+                              {isError ? 'Retry' : 'Refresh'}
+                            </Row>
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            kind="elevated"
+                            size="small"
+                            colorMode="dark"
+                            onClick={() => handleRemove(s.id)}
+                            disabled={!!actioning}
+                            style={{
+                              minWidth: 'auto',
+                              color: mainColors.red,
+                              borderColor: 'rgba(238,77,55,0.4)',
+                            }}
+                          >
+                            <Row
+                              gap={4}
+                              alignItems="center"
+                              justifyContent="center"
+                            >
+                            <Trash2 size={14} style={{ marginRight: 4 }} />
+                            Remove
+                            </Row>
+                          </Button>
                         </Row>
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        kind="elevated"
-                        size="small"
-                        colorMode="dark"
-                        onClick={() => handleRemove(s.id)}
-                        disabled={!!actioning}
-                        style={{
-                          minWidth: 'auto',
-                          color: mainColors.red,
-                          borderColor: 'rgba(238,77,55,0.4)',
-                        }}
-                      >
-                        <Row
-                          gap={4}
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                        <Trash2 size={14} style={{ marginRight: 4 }} />
-                        Remove
-                        </Row>
-                      </Button>
-                    </Row>
-                    </Column>
-                  </div>
-                </div>
-              ))}
+                        </Column>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>
@@ -548,6 +590,24 @@ const CATEGORY_COLORS = [
   { name: 'Warn', value: colorPalette.warning[500] },
   { name: 'Gray', value: colorPalette.black[50] },
   { name: 'Teal', value: colorPalette.success[300] },
+  { name: 'Coral', value: '#FF6B6B' },
+  { name: 'Seafoam', value: '#4ECDC4' },
+  { name: 'Sky', value: '#45B7D1' },
+  { name: 'Sage', value: '#96CEB4' },
+  { name: 'Butter', value: '#FFEAA7' },
+  { name: 'Plum', value: '#DDA0DD' },
+  { name: 'Hot Pink', value: '#FF9FF3' },
+  { name: 'Cornflower', value: '#54A0FF' },
+  { name: 'Deep Purple', value: '#5F27CD' },
+  { name: 'Dark Teal', value: '#01A3A4' },
+  { name: 'Mulberry', value: '#C44569' },
+  { name: 'Terra Cotta', value: '#E17055' },
+  { name: 'Emerald', value: '#00B894' },
+  { name: 'Iris', value: '#6C5CE7' },
+  { name: 'Gold', value: '#FDCB6E' },
+  { name: 'Fuchsia', value: '#E84393' },
+  { name: 'Ocean', value: '#0984E3' },
+  { name: 'Graphite', value: '#636E72' },
 ];
 
 function ColorPickerPopover({

@@ -124,6 +124,9 @@ export function SetupForm({ onSubmit, className, initialData, isUpdate = false }
           <Typography fontType={FontType.BODY} fontSize={14} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.6)">
             Set up your cards once, and we'll handle the rest.
           </Typography>
+          <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.35)" style={{ marginTop: 6 }}>
+            These details are needed to unlock and process your statement files.
+          </Typography>
         </div>
 
         <form onSubmit={handleSubmit} style={{ boxSizing: 'border-box' }}>

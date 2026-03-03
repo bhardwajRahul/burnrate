@@ -185,6 +185,7 @@ export interface BulkUploadResult {
   failed: number;
   duplicate: number;
   card_not_found: number;
+  parse_error: number;
   skipped: number;
 }
 
@@ -218,6 +219,7 @@ interface StatementRaw {
   period_end: string | null;
   transaction_count: number;
   total_spend: number;
+  status: string | null;
   imported_at: string | null;
 }
 
@@ -231,6 +233,7 @@ export async function getStatements(): Promise<Statement[]> {
     periodEnd: s.period_end ?? '',
     transactionCount: s.transaction_count,
     totalSpend: s.total_spend,
+    status: (s.status as 'success' | 'parse_error') ?? 'success',
     importedAt: s.imported_at ?? '',
   }));
 }

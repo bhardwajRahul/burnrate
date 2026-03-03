@@ -83,7 +83,8 @@ async def upload_bulk(
 
     results = {
         "total": len(saved), "success": 0, "failed": 0,
-        "duplicate": 0, "card_not_found": 0, "skipped": len(skipped),
+        "duplicate": 0, "card_not_found": 0, "parse_error": 0,
+        "skipped": len(skipped),
     }
     for future in concurrent.futures.as_completed(futures):
         try:
@@ -95,6 +96,8 @@ async def upload_bulk(
                 results["duplicate"] += 1
             elif status == "card_not_found":
                 results["card_not_found"] += 1
+            elif status == "parse_error":
+                results["parse_error"] += 1
             else:
                 results["failed"] += 1
         except Exception:
@@ -160,6 +163,7 @@ def list_statements(db: Session = Depends(get_db)) -> List[Dict[str, Any]]:
             "total_spend": s.total_spend,
             "total_amount_due": s.total_amount_due,
             "credit_limit": s.credit_limit,
+            "status": getattr(s, "status", None) or "success",
             "imported_at": s.imported_at.isoformat() if s.imported_at else None,
         }
         for s in statements

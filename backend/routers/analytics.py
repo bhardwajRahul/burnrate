@@ -254,7 +254,9 @@ def statement_periods(
     to_date: Optional[date] = Query(None, alias="to"),
 ) -> Dict[str, Any]:
     """Return all statement periods with net spend computed per period."""
-    q = db.query(Statement)
+    q = db.query(Statement).filter(
+        (Statement.status == "success") | (Statement.status.is_(None))
+    )
 
     if from_date:
         q = q.filter(Statement.period_end >= from_date)
