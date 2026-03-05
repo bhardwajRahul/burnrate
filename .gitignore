@@ -59,7 +59,7 @@ htmlcov/
 
 # assets/
 assets/*.mjs
-docs/
+assets/burnrate-demo.mp4
 
 video/
 reddit-post.md
@@ -67,7 +67,6 @@ reddit-post.md
 *.db-shm
 *.db-journal
 tests/fixtures/
-assets/
 screenshots/
 
 # Tauri build artifacts

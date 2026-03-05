@@ -4,9 +4,7 @@
 
 Burnrate is a personal finance analytics app that runs entirely on your laptop. Your financial data never leaves your machine — no cloud, no servers, no tracking.
 
-https://github.com/user-attachments/assets/burnrate-demo.mp4
-
-<video src="assets/burnrate-demo.mp4" width="100%" autoplay loop muted></video>
+![Dashboard](assets/screenshot_dashboard.png)
 
 ## Features
 
@@ -21,10 +19,6 @@ https://github.com/user-attachments/assets/burnrate-demo.mp4
 - **Statement management** — Reparse or remove imported statements
 - **Google Apps Script** — Auto-download statements from Gmail (optional)
 
-> **Note:** Currently, only **HDFC**, **ICICI**, **Axis**, and **Indian Bank** credit cards are officially supported and tested. Other bank cards *may* work, but stability is not guaranteed at this time.  
-Support for many more cards is coming soon!  
-If you'd like to specifically request support for a new card, please [create a GitHub issue](https://github.com/pratik1235/burnrate/issues/new?title=Card%20support%20request:%20%3CYour%20Bank%3E&labels=enhancement).
-
 ## Privacy First
 
 - All data stored locally in SQLite
@@ -32,35 +26,45 @@ If you'd like to specifically request support for a new card, please [create a G
 - No telemetry, analytics, or tracking
 - Your statements and transactions stay on your machine
 
-## Tech Stack
+## Installation
 
-| Layer | Technology |
-|-------|-----------|
-| Backend | Python 3.11+, FastAPI, SQLAlchemy, SQLite |
-| Frontend | React 18, TypeScript, Vite, styled-components |
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+
-- npm
-
-### Backend
+### Homebrew (macOS)
 
 ```bash
+brew tap pratik1235/burnrate
+brew install burnrate
+burnrate
+```
+
+Then open http://localhost:8000 in your browser.
+
+### Docker
+
+```bash
+docker pull pratik1235/burnrate:v0.2.0
+docker run -p 8000:8000 -v burnrate_data:/data pratik1235/burnrate:v0.2.0
+```
+
+### macOS Native App
+
+Download `Burnrate_0.2.0_aarch64.dmg` from [GitHub Releases](https://github.com/pratik1235/burnrate/releases/latest), open the DMG, and drag to Applications.
+
+### Windows Native App
+
+Download `Burnrate-Setup.exe` from [GitHub Releases](https://github.com/pratik1235/burnrate/releases/latest) and run the installer.
+
+### From Source
+
+```bash
+# Backend
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 cd ..
 python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
-```
 
-### Frontend
-
-```bash
+# Frontend (in a separate terminal)
 cd frontend-neopop
 npm install
 npm run dev
@@ -92,6 +96,14 @@ Open http://localhost:5173 in your browser.
 |-------|
 | ![](assets/screenshot_setup.png) |
 
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python 3.11+, FastAPI, SQLAlchemy, SQLite |
+| Frontend | React 18, TypeScript, Vite, styled-components |
+| Desktop | Tauri v2 (native macOS/Windows wrapper) |
+
 ## Project Structure
 
 ```
@@ -111,21 +123,22 @@ burnrate/
 │   │   ├── hooks/        # Custom hooks
 │   │   └── lib/          # Types, utils, API
 │   └── public/
+├── src-tauri/            # Tauri native app shell
 ├── apps-script/          # Gmail auto-download (optional)
 ├── tests/                # Integration test suite
-├── scripts/              # Build scripts for native apps
+├── scripts/              # Build scripts
 ├── docs/                 # Distribution documentation
-└── assets/               # Screenshots and demo video
+└── assets/               # Screenshots
 ```
 
 ## Distribution
 
-| Method | Docs | Status |
-|--------|------|--------|
-| Homebrew (macOS) | — | Available |
-| Docker | [docs/docker.md](docs/docker.md) | Ready |
-| macOS Native (.app) | [docs/macos-native.md](docs/macos-native.md) | Ready |
-| Windows Native (.exe) | [docs/windows-native.md](docs/windows-native.md) | Ready |
+| Method | Install | Docs |
+|--------|---------|------|
+| **Homebrew** | `brew tap pratik1235/burnrate && brew install burnrate` | — |
+| **Docker** | `docker pull pratik1235/burnrate` | [docs/docker.md](docs/docker.md) |
+| **macOS Native** | [Download .dmg](https://github.com/pratik1235/burnrate/releases/latest) | [docs/macos-native.md](docs/macos-native.md) |
+| **Windows Native** | [Download .exe](https://github.com/pratik1235/burnrate/releases/latest) | [docs/windows-native.md](docs/windows-native.md) |
 
 ## License
 
