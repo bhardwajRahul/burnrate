@@ -2,12 +2,14 @@
 
 import concurrent.futures
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
+
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB per file
 
 from backend.models.database import SessionLocal, UPLOADS_DIR, get_db
 from backend.models.models import ProcessingLog, Statement, Transaction
@@ -28,10 +30,13 @@ def upload_statement(
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="PDF file required")
 
-    safe_name = f"{uuid4().hex}_{file.filename}"
+    basename = PurePosixPath(file.filename).name or "upload.pdf"
+    safe_name = f"{uuid4().hex}_{basename}"
     persistent_path = str(UPLOADS_DIR / safe_name)
+    content = file.file.read(MAX_UPLOAD_SIZE + 1)
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail="File too large (max 50 MB)")
     with open(persistent_path, "wb") as f:
-        content = file.file.read()
         f.write(content)
 
     result = process_statement(
@@ -58,9 +63,13 @@ async def upload_bulk(
         if not f.filename or not f.filename.lower().endswith(".pdf"):
             skipped.append(f.filename or "<unknown>")
             continue
-        safe_name = f"{uuid4().hex}_{f.filename}"
+        basename = PurePosixPath(f.filename).name or "upload.pdf"
+        safe_name = f"{uuid4().hex}_{basename}"
         persistent_path = str(UPLOADS_DIR / safe_name)
         content = await f.read()
+        if len(content) > MAX_UPLOAD_SIZE:
+            skipped.append(f.filename or "<unknown>")
+            continue
         with open(persistent_path, "wb") as out:
             out.write(content)
         saved.append(persistent_path)

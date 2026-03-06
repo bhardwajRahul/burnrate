@@ -43,8 +43,24 @@ export function useSettings(): {
   }, []);
 
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await getSettings();
+        if (!cancelled) setSettings(result);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e : new Error(String(e)));
+          setSettings(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return { settings, loading, error, refetch };
 }
@@ -129,8 +145,57 @@ export function useTransactions(filters: TransactionFilters = {}) {
   ]);
 
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params: GetTransactionsParams = {
+          limit: filters.limit ?? 50,
+          offset: filters.offset ?? 0,
+        };
+        if (filters.cards) params.cards = filters.cards;
+        else if (filters.card) params.card = filters.card;
+        if (filters.from) params.from = filters.from;
+        if (filters.to) params.to = filters.to;
+        if (filters.category) params.category = filters.category;
+        if (filters.search) params.search = filters.search;
+        if (filters.tags) (params as Record<string, unknown>).tags = filters.tags;
+        if (filters.direction) params.direction = filters.direction;
+        if (filters.amountMin !== undefined) params.amount_min = filters.amountMin;
+        if (filters.amountMax !== undefined) params.amount_max = filters.amountMax;
+        const result = await apiGetTransactions(params);
+        if (!cancelled) {
+          setTransactions(Array.isArray(result?.transactions) ? result.transactions : []);
+          setTotal(typeof result?.total === 'number' ? result.total : 0);
+          setTotalAmount(typeof result?.totalAmount === 'number' ? result.totalAmount : 0);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e : new Error(String(e)));
+          setTransactions([]);
+          setTotal(0);
+          setTotalAmount(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [
+    filters.card,
+    filters.cards,
+    filters.from,
+    filters.to,
+    filters.category,
+    filters.search,
+    filters.tags,
+    filters.direction,
+    filters.amountMin,
+    filters.amountMax,
+    filters.limit,
+    filters.offset,
+  ]);
 
   return { transactions, total, totalAmount, loading, error, refetch };
 }
@@ -206,8 +271,61 @@ export function useAnalytics(filters: AnalyticsFilters = {}) {
   ]);
 
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = {
+          ...(filters.from ? { from: filters.from } : {}),
+          ...(filters.to ? { to: filters.to } : {}),
+          ...(filters.cards ? { cards: filters.cards } : {}),
+          ...(filters.categories ? { categories: filters.categories } : {}),
+          ...(filters.tags ? { tags: filters.tags } : {}),
+          ...(filters.direction ? { direction: filters.direction } : {}),
+          ...(filters.amountMin !== undefined ? { amount_min: filters.amountMin } : {}),
+          ...(filters.amountMax !== undefined ? { amount_max: filters.amountMax } : {}),
+        };
+        const hasParams = Object.keys(params).length > 0;
+        const apiParams = hasParams ? params : undefined;
+        const [summaryRes, categoriesRes, trendsRes, merchantsRes] =
+          await Promise.all([
+            getSummary(apiParams),
+            getCategories(apiParams),
+            getTrends(apiParams),
+            getMerchants(apiParams),
+          ]);
+        if (!cancelled) {
+          setSummary(
+            summaryRes && typeof summaryRes.totalSpend === 'number' ? summaryRes : EMPTY_SUMMARY
+          );
+          setCategories(Array.isArray(categoriesRes?.breakdown) ? categoriesRes.breakdown : []);
+          setTrends(Array.isArray(trendsRes?.trends) ? trendsRes.trends : []);
+          setMerchants(Array.isArray(merchantsRes?.merchants) ? merchantsRes.merchants : []);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e : new Error(String(e)));
+          setSummary(EMPTY_SUMMARY);
+          setCategories([]);
+          setTrends([]);
+          setMerchants([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [
+    filters.from,
+    filters.to,
+    filters.cards,
+    filters.categories,
+    filters.tags,
+    filters.direction,
+    filters.amountMin,
+    filters.amountMax,
+  ]);
 
   return {
     summary,
@@ -240,8 +358,24 @@ export function useCards() {
   }, []);
 
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await apiGetCards();
+        if (!cancelled) setCards(Array.isArray(result) ? result : []);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e : new Error(String(e)));
+          setCards([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return { cards, loading, error, refetch };
 }

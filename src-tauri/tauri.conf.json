@@ -47,7 +47,7 @@
         {
           "name": "binaries/burnrate-server",
           "sidecar": true,
-          "args": true
+          "args": ["--host", "127.0.0.1", "--port", { "validator": "\\d+" }]
         }
       ]
     }

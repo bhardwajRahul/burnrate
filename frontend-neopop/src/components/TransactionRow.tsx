@@ -66,16 +66,20 @@ export function TransactionRow({ transaction, className }: TransactionRowProps) 
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   useEffect(() => {
+    let cancelled = false;
     loadCategoryCache().then(() => {
-      if (_categoryCache) setCatMap(_categoryCache);
+      if (!cancelled && _categoryCache) setCatMap(_categoryCache);
     });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/tags')
       .then((r) => r.json())
-      .then((data: any[]) => setAvailableTags(data.map((t: any) => t.name)))
+      .then((data: any[]) => { if (!cancelled) setAvailableTags(data.map((t: any) => t.name)); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {

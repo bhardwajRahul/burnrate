@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session, joinedload
 from backend.models.database import get_db
 from backend.models.models import Transaction, TransactionTag
 
+
+def _escape_like(value: str) -> str:
+    """Escape SQL LIKE wildcard characters so user input is matched literally."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
@@ -54,9 +59,10 @@ def list_transactions(
     elif direction == "outgoing":
         q = q.filter(Transaction.type == "debit")
     if search:
+        escaped = _escape_like(search)
         q = q.filter(
-            Transaction.merchant.ilike(f"%{search}%")
-            | Transaction.description.ilike(f"%{search}%")
+            Transaction.merchant.ilike(f"%{escaped}%", escape="\\")
+            | Transaction.description.ilike(f"%{escaped}%", escape="\\")
         )
     if tags:
         tag_names = [t.strip() for t in tags.split(",") if t.strip()]

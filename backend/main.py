@@ -18,9 +18,10 @@ logging.basicConfig(
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from backend.models.database import SessionLocal, init_db
 from backend.models.models import CategoryDefinition, Settings
@@ -87,6 +88,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Burnrate Credit Card Analytics", lifespan=lifespan)
 
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -127,16 +141,21 @@ if _static_dir:
 
     _index_html = Path(_static_dir) / "index.html"
 
+    _static_root_resolved = Path(_static_dir).resolve()
+
     @app.get("/{full_path:path}")
     async def _spa_fallback(full_path: str):
         """Serve index.html for all non-API, non-asset routes (SPA routing)."""
-        # Try to serve the exact file first (e.g. favicon.ico, manifest.json)
-        requested = Path(_static_dir) / full_path  # type: ignore[arg-type]
-        if requested.is_file():
+        requested = (Path(_static_dir) / full_path).resolve()  # type: ignore[arg-type]
+        if (
+            requested.is_file()
+            and str(requested).startswith(str(_static_root_resolved))
+        ):
             return FileResponse(requested)
         return FileResponse(_index_html)
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("BURNRATE_PORT", "8000"))
+    uvicorn.run(app, host="127.0.0.1", port=port)

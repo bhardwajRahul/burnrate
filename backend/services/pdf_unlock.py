@@ -1,10 +1,13 @@
 """PDF unlock service using pikepdf."""
 
+import logging
 import os
 from pathlib import Path
 from typing import List, Optional
 
 import pikepdf
+
+logger = logging.getLogger(__name__)
 
 def generate_passwords(
     bank: str,
@@ -152,9 +155,8 @@ def unlock_pdf(pdf_path: str, passwords: List[str]) -> Optional[str]:
 
     for pwd in passwords:
         try:
-            pdf = pikepdf.open(pdf_path, password=pwd)
-            pdf.save(unlocked_path)
-            pdf.close()
+            with pikepdf.open(pdf_path, password=pwd) as pdf:
+                pdf.save(unlocked_path)
             return str(unlocked_path)
         except pikepdf.PasswordError:
             continue

@@ -103,7 +103,7 @@ class StatementWatchHandler(FileSystemEventHandler):
             logger.exception("Failed to process %s: %s", file_name, e)
             _log_processing_result(
                 self.db_session_factory, file_name,
-                {"status": "error", "message": str(e), "count": 0},
+                {"status": "error", "message": "Processing failed unexpectedly", "count": 0},
             )
 
     @staticmethod

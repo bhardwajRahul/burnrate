@@ -139,8 +139,8 @@ def live_server(db_session_factory, setup_cards):
     import urllib.request
     for _ in range(30):
         try:
-            urllib.request.urlopen(f"http://localhost:{port}/api/settings")
-            break
+            with urllib.request.urlopen(f"http://localhost:{port}/api/settings"):
+                break
         except Exception:
             time.sleep(0.5)
 

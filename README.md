@@ -142,6 +142,20 @@ burnrate/
 | **macOS Native** (.dmg) | [Download from Releases](https://github.com/pratik1235/burnrate/releases/latest) | [docs/macos-installation.md](docs/macos-installation.md) |
 | **Windows Native** (.exe) | [Download from Releases](https://github.com/pratik1235/burnrate/releases/latest) | [docs/windows-installation.md](docs/windows-installation.md) |
 
+## Contributing
+
+We welcome contributions! Please read the [Contributing Guide](CONTRIBUTING.md) before submitting a pull request.
+
+Burnrate follows **spec-driven development** — all new features require a spec document before implementation. See the project documentation for reference:
+
+| Document | Description |
+|----------|-------------|
+| [Contributing Guide](CONTRIBUTING.md) | How to contribute, code standards, workflow |
+| [Project Constitution](docs/CONSTITUTION.md) | Project guidelines, code constraints, security standards |
+| [Requirements](docs/requirements.md) | Functional and non-functional requirements |
+| [Architecture](docs/architecture.md) | System architecture, data models, API docs, diagrams |
+| [Feature Plans](docs/plans/) | Detailed plans for each backend feature |
+
 ## License
 
 Apache 2.0 Open Source

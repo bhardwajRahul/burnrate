@@ -56,14 +56,17 @@ export function CategoryDonut({ data, className }: CategoryDonutProps) {
   const total = data.reduce((sum, d) => sum + d.amount, 0);
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/categories/all')
       .then((r) => r.json())
       .then((data: any[]) => {
+        if (cancelled) return;
         const map: Record<string, { name: string; color: string }> = {};
         for (const c of data) map[c.slug] = { name: c.name, color: c.color };
         setCatMap(map);
       })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   return (

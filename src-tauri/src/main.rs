@@ -57,6 +57,9 @@ fn main() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Destroyed = event {
+                if window.label() != "main" {
+                    return;
+                }
                 if let Some(child) = window
                     .app_handle()
                     .state::<ServerChild>()

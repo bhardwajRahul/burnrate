@@ -96,14 +96,17 @@ class TestStatementUpload:
         assert data["status"] == "duplicate"
 
     def test_bulk_upload(self, api_client):
+        file_handles = []
         files = []
-        for fname, _, _, _ in STATEMENT_FILES:
-            files.append(
-                ("files", (fname, open(FIXTURES / fname, "rb"), "application/pdf"))
-            )
-        resp = api_client.post("/api/statements/upload-bulk", files=files)
-        for _, f in files:
-            f[1].close()
+        try:
+            for fname, _, _, _ in STATEMENT_FILES:
+                fh = open(FIXTURES / fname, "rb")
+                file_handles.append(fh)
+                files.append(("files", (fname, fh, "application/pdf")))
+            resp = api_client.post("/api/statements/upload-bulk", files=files)
+        finally:
+            for fh in file_handles:
+                fh.close()
         assert resp.status_code == 200
         data = resp.json()
         assert data["duplicate"] == 3, "All 3 should be duplicates on re-upload"

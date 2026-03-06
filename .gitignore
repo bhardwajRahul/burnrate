@@ -78,6 +78,7 @@ docs/windows-native.md
 # Tauri build artifacts
 src-tauri/target/
 src-tauri/binaries/
+src-tauri/gen/
 
 # PyInstaller spec files
 *.spec

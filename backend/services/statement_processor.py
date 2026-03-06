@@ -359,12 +359,12 @@ def process_statement(
         }
 
     except Exception as e:
-        logger.exception("Statement processing failed")
+        logger.exception("Statement processing failed: %s", e)
         if db_session:
             db_session.rollback()
         return {
             "status": "error",
-            "message": str(e),
+            "message": "An internal error occurred while processing the statement",
             "count": 0,
             "period": None,
             "bank": bank,

@@ -29,19 +29,23 @@ export function FilterModal({ open, onClose }: FilterModalProps) {
   const [localMax, setLocalMax] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/categories/all')
       .then((r) => r.json())
-      .then((data: any[]) =>
-        setAllCategories(data.map((c) => ({ slug: c.slug, name: c.name, color: c.color })))
-      )
+      .then((data: any[]) => {
+        if (!cancelled) setAllCategories(data.map((c) => ({ slug: c.slug, name: c.name, color: c.color })));
+      })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     fetch('/api/tags')
       .then((r) => r.json())
-      .then((data: any[]) => setAvailableTags(data))
+      .then((data: any[]) => { if (!cancelled) setAvailableTags(data); })
       .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   const safeCards = Array.isArray(cards) ? cards : [];
