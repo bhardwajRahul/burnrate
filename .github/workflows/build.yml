@@ -41,22 +41,23 @@ jobs:
         with:
           ref: ${{ inputs.sha || github.ref }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: pip
-
-      - name: Install system dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qpdf
-
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt pytest httpx
-
-      - name: Run backend tests
-        run: python -m pytest tests/test_api.py tests/test_parsers.py -v --tb=short
-        env:
-          BURNRATE_DATA_DIR: /tmp/burnrate_test
+      # Backend tests disabled: test fixtures (PDF statements) are gitignored for privacy
+      # - name: Set up Python
+      #   uses: actions/setup-python@v5
+      #   with:
+      #     python-version: '3.12'
+      #     cache: pip
+      #
+      # - name: Install system dependencies
+      #   run: sudo apt-get update && sudo apt-get install -y --no-install-recommends qpdf
+      #
+      # - name: Install Python dependencies
+      #   run: pip install -r requirements.txt pytest httpx
+      #
+      # - name: Run backend tests
+      #   run: python -m pytest tests/test_api.py tests/test_parsers.py -v --tb=short
+      #   env:
+      #     BURNRATE_DATA_DIR: /tmp/burnrate_test
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
