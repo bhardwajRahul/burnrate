@@ -124,14 +124,9 @@ The `release.yml` workflow runs four main jobs plus a release job.
 
 ### 5.1 Update README.md
 
-Update the Docker pull example with the new version:
+Update the release artifact references in the readme.md file.
 
-```markdown
-docker pull pratik1235/burnrate:v0.2.1
-docker run -p 8000:8000 -v burnrate_data:/data pratik1235/burnrate:v0.2.1
-```
-
-### 5.2 Verify artifacts
+### 5.2 Verify artifacts -- Optional
 
 - [ ] Download and test the macOS DMG on Apple Silicon and/or Intel
 - [ ] Download and test the Windows installer
@@ -140,7 +135,7 @@ docker run -p 8000:8000 -v burnrate_data:/data pratik1235/burnrate:v0.2.1
 
 ### 5.3 Homebrew formula SHA
 
-The CI automatically updates the Homebrew formula with the correct tarball URL and SHA256. If `HOMEBREW_TAP_TOKEN` is not set, this step is skipped. To update manually:
+The CI automatically updates the Homebrew formula with the correct tarball URL and SHA256. If `HOMEBREW_TAP_TOKEN`(it is already set) is not set, this step is skipped. To update manually:
 
 ```bash
 VERSION="0.2.1"
