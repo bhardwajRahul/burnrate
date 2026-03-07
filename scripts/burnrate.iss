@@ -6,11 +6,12 @@
 
 [Setup]
 AppName=Burnrate
-AppVersion=0.2.0
+AppVersion=0.2.1
 AppPublisher=Pratik Prakash
 AppPublisherURL=https://github.com/pratik1235/burnrate
 DefaultDirName={autopf}\Burnrate
 DefaultGroupName=Burnrate
+SetupIconFile=src-tauri\icons\icon.ico
 SourceDir=..
 OutputDir=dist
 OutputBaseFilename=Burnrate-Setup
@@ -23,8 +24,8 @@ WizardStyle=modern
 Source: "dist\Burnrate\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\Burnrate"; Filename: "{app}\Burnrate.exe"
-Name: "{autodesktop}\Burnrate"; Filename: "{app}\Burnrate.exe"; Tasks: desktopicon
+Name: "{group}\Burnrate"; Filename: "{app}\Burnrate.exe"; IconFilename: "{app}\icon.ico"
+Name: "{autodesktop}\Burnrate"; Filename: "{app}\Burnrate.exe"; IconFilename: "{app}\icon.ico"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked

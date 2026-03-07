@@ -47,7 +47,13 @@ docker pull pratik1235/burnrate:v0.2.0
 docker run -p 8000:8000 -v burnrate_data:/data pratik1235/burnrate:v0.2.0
 ```
 
-### macOS Native App
+### macOS — Homebrew
+
+```bash
+brew install pratik1235/burnrate/burnrate
+```
+
+### macOS — DMG
 
 Download the DMG for your architecture from [GitHub Releases](https://github.com/pratik1235/burnrate/releases/latest):
 

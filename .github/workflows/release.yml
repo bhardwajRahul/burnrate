@@ -288,12 +288,11 @@ jobs:
         working-directory: frontend-neopop
         run: npm run build
 
-      - name: Generate app icon
-        shell: pwsh
+      - name: Generate app icons from SVG
         run: |
-          Add-Type -AssemblyName System.Drawing
-          $svg = Get-Content "frontend-neopop/public/burnrate-logo.svg" -Raw
-          Write-Host "Icon SVG available for PyInstaller"
+          cd frontend-neopop
+          npm install --save-dev @resvg/resvg-js
+          node ../scripts/generate-icons.mjs
 
       - name: Build Windows executable
         run: |
@@ -301,6 +300,7 @@ jobs:
             --name Burnrate `
             --onedir `
             --noconfirm `
+            --icon "src-tauri/icons/icon.ico" `
             --add-data "frontend-neopop/dist;static" `
             --hidden-import uvicorn.logging `
             --hidden-import uvicorn.loops `
@@ -327,6 +327,9 @@ jobs:
             --hidden-import backend.routers.tags `
             --hidden-import backend.routers.transactions `
             scripts/launch.py
+
+      - name: Copy icon into dist for installer
+        run: Copy-Item "src-tauri/icons/icon.ico" "dist/Burnrate/icon.ico"
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
@@ -391,3 +394,36 @@ jobs:
             artifacts/macos-arm64/*.dmg
             artifacts/macos-x86_64/*.dmg
             artifacts/windows/*.exe
+
+      - name: Update Homebrew Formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_REPO: pratik1235/homebrew-burnrate
+        run: |
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN not set — skipping Homebrew Formula update"
+            exit 0
+          fi
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          TARBALL_URL="https://github.com/pratik1235/burnrate/archive/${GITHUB_REF_NAME}.tar.gz"
+          SHA256=$(curl -sL "$TARBALL_URL" | sha256sum | awk '{print $1}')
+          echo "Version: ${VERSION}"
+          echo "SHA256:  ${SHA256}"
+
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${TAP_REPO}.git" _tap
+          cd _tap
+
+          # Read the template from the burnrate repo and fill in version + SHA
+          cp "$GITHUB_WORKSPACE/HomebrewFormula/burnrate.rb" Formula/burnrate.rb
+          sed -i "s|url \"https://github.com/pratik1235/burnrate/archive/v.*\.tar\.gz\"|url \"${TARBALL_URL}\"|" Formula/burnrate.rb
+          sed -i "s|sha256 \"PLACEHOLDER\"|sha256 \"${SHA256}\"|" Formula/burnrate.rb
+          sed -i "s|sha256 \"[a-f0-9]\{64\}\"|sha256 \"${SHA256}\"|" Formula/burnrate.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/burnrate.rb
+          git diff --cached --quiet && echo "No changes to Formula" && exit 0
+          git commit -m "Update burnrate to ${VERSION}"
+          git push
+          echo "Homebrew Formula updated to ${VERSION}"

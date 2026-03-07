@@ -1,6 +1,14 @@
 # macOS Native App Installation
 
-## Download
+## Homebrew (recommended)
+
+```bash
+brew install pratik1235/burnrate/burnrate
+```
+
+This automatically downloads the correct DMG for your chip, installs the app, and clears quarantine.
+
+## Manual Download
 
 Download the DMG for your Mac from the [latest GitHub release](https://github.com/pratik1235/burnrate/releases/latest):
 
