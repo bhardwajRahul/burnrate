@@ -13,6 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
+        "label": "main",
         "title": "Burnrate",
         "width": 1280,
         "height": 800,
@@ -21,7 +22,20 @@
         "center": true,
         "decorations": true,
         "resizable": true,
-        "url": "/"
+        "url": "/",
+        "visible": false
+      },
+      {
+        "label": "splashscreen",
+        "title": "Burnrate",
+        "width": 500,
+        "height": 350,
+        "center": true,
+        "decorations": false,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "transparent": true,
+        "url": "/splash.html"
       }
     ]
   },

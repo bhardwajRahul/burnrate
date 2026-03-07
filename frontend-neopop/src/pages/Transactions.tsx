@@ -13,6 +13,7 @@ import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { SlidersHorizontal, Download } from 'lucide-react';
 import { CloseButton } from '@/components/CloseButton';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import styled from 'styled-components';
 
 const PageLayout = styled.div`
@@ -91,6 +92,7 @@ function TransactionsContent() {
   const [page, setPage] = useState(0);
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [searchTooltipVisible, setSearchTooltipVisible] = useState(false);
+  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
 
   const categoryFilter =
     filters.selectedCategories.length === 1 ? filters.selectedCategories[0] : undefined;
@@ -138,11 +140,11 @@ function TransactionsContent() {
 
   const handleExport = async () => {
     if (safeTransactions.length === 0) return;
+    setExportConfirmOpen(true);
+  };
 
-    const proceed = window.confirm(
-      'Warning: Do not save this file in your statements watch folder to avoid re-processing.\n\nProceed with export?'
-    );
-    if (!proceed) return;
+  const executeExport = async () => {
+    setExportConfirmOpen(false);
 
     const escapeCSV = (val: string) => {
       if (val.includes(',') || val.includes('"') || val.includes('\n')) {
@@ -270,23 +272,23 @@ function TransactionsContent() {
               </div>
             )}
             <CompactSearchWrapper>
-            <SearchBar
-              key={searchClearKey}
-              placeholder="Search transactions..."
-              colorMode={searchQuery ? 'light' : 'dark'}
-              handleSearchInput={(value: string) => setSearchInputValue(value)}
-              onSubmit={() => {
-                setSearchQuery(searchInputValue);
-                setPage(0);
-              }}
-              // todo: reduce vertical size of the search bar
-              colorConfig={{
-                border: 'rgba(255,255,255,0.2)',
-                activeBorder: '#ffffff',
-                backgroundColor: searchQuery ? mainColors.white : 'rgba(255,255,255,0.05)',
-                closeIcon: colorPalette.rss[500],
-              }}
-            />
+              <SearchBar
+                key={searchClearKey}
+                placeholder="Search transactions..."
+                colorMode={searchQuery ? 'light' : 'dark'}
+                handleSearchInput={(value: string) => setSearchInputValue(value)}
+                onSubmit={() => {
+                  setSearchQuery(searchInputValue);
+                  setPage(0);
+                }}
+                // todo: reduce vertical size of the search bar
+                colorConfig={{
+                  border: 'rgba(255,255,255,0.2)',
+                  activeBorder: '#ffffff',
+                  backgroundColor: searchQuery ? mainColors.white : 'rgba(255,255,255,0.05)',
+                  closeIcon: colorPalette.rss[500],
+                }}
+              />
             </CompactSearchWrapper>
             {searchQuery && (
               <CloseButton
@@ -455,6 +457,15 @@ function TransactionsContent() {
       </Content>
 
       <FilterModal open={filterOpen} onClose={() => setFilterOpen(false)} />
+      <ConfirmModal
+        open={exportConfirmOpen}
+        title="Export Transactions"
+        message="Do not save this file in your statements watch folder to avoid re-processing."
+        confirmLabel="Export"
+        variant="warning"
+        onConfirm={executeExport}
+        onCancel={() => setExportConfirmOpen(false)}
+      />
     </PageLayout>
   );
 }

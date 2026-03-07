@@ -13,6 +13,7 @@ import { formatCurrency } from '@/lib/utils';
 import { toast } from '@/components/Toast';
 import { Trash2, SlidersHorizontal, Plus } from 'lucide-react';
 import { CloseButton } from '@/components/CloseButton';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import styled from 'styled-components';
 
 const PageLayout = styled.div`
@@ -138,6 +139,7 @@ export function Cards() {
   const activeCount = countActiveFilters(filters);
   const safeCards = Array.isArray(cards) ? cards : [];
   const cardBreakdown = summary?.cardBreakdown ?? [];
+  const [confirmRemove, setConfirmRemove] = useState<{ id: string; label: string } | null>(null);
 
   const cardSpendMap = safeCards.map((card) => {
     const match = cardBreakdown.find(
@@ -147,15 +149,19 @@ export function Cards() {
   });
 
   const handleRemoveCard = async (cardId: string, cardLabel: string) => {
-    const confirmed = window.confirm('Remove this card and all its transactions?');
-    if (!confirmed) return;
+    setConfirmRemove({ id: cardId, label: cardLabel });
+  };
 
+  const executeRemoveCard = async () => {
+    if (!confirmRemove) return;
     try {
-      await deleteCard(cardId);
-      toast.success(`${cardLabel} removed successfully`);
+      await deleteCard(confirmRemove.id);
+      toast.success(`${confirmRemove.label} removed successfully`);
       refetchCards();
     } catch {
       toast.error('Failed to remove card');
+    } finally {
+      setConfirmRemove(null);
     }
   };
 
@@ -285,6 +291,15 @@ export function Cards() {
         )}
       </Content>
       <FilterModal open={filterOpen} onClose={() => setFilterOpen(false)} />
+      <ConfirmModal
+        open={confirmRemove !== null}
+        title="Remove Card"
+        message={`Remove ${confirmRemove?.label ?? 'this card'} and all its transactions?`}
+        confirmLabel="Remove"
+        variant="danger"
+        onConfirm={executeRemoveCard}
+        onCancel={() => setConfirmRemove(null)}
+      />
     </PageLayout>
   );
 }

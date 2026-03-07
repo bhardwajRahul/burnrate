@@ -79,6 +79,8 @@ def process_statement(
         db_session = SessionLocal()
         close_session = True
 
+    working_path = pdf_path  # may be reassigned to a temp unlocked file
+
     try:
         if not os.path.isfile(pdf_path):
             return {"status": "error", "message": "File not found", "count": 0}
@@ -182,12 +184,6 @@ def process_statement(
         # bank are registered at all — avoids wasting time on PDF parsing.
         registered_cards = db_session.query(Card).filter(Card.bank == bank).all()
         if not registered_cards:
-            # Clean up unlocked temp file before returning
-            if working_path != pdf_path and os.path.isfile(working_path):
-                try:
-                    os.remove(working_path)
-                except OSError:
-                    pass
             logger.warning(
                 "Skipping statement — no %s cards registered", bank,
             )
@@ -209,13 +205,6 @@ def process_statement(
         else:
             parser = GenericParser(bank=bank)
         parsed = parser.parse(working_path)
-
-        # Clean up unlocked temp file if we created one
-        if working_path != pdf_path and os.path.isfile(working_path):
-            try:
-                os.remove(working_path)
-            except OSError:
-                pass
 
         # Resolve card_last4 from parsed data or registered cards
         card_last4 = getattr(parsed, "card_last4", None)
@@ -370,5 +359,11 @@ def process_statement(
             "bank": bank,
         }
     finally:
+        # Always clean up temp unlocked PDF
+        if working_path != pdf_path and os.path.isfile(working_path):
+            try:
+                os.remove(working_path)
+            except OSError:
+                pass
         if close_session and db_session:
             db_session.close()

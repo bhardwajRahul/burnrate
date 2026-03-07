@@ -145,19 +145,24 @@ def generate_passwords(
 def unlock_pdf(pdf_path: str, passwords: List[str]) -> Optional[str]:
     """
     Try each password with pikepdf. On success, save decrypted copy
-    with _unlocked suffix and return its path. Returns None if all fail.
+    to a temporary file and return its path. The caller is responsible
+    for deleting the temp file when done.
+    Returns None if all passwords fail.
     """
+    import tempfile
+
     if not os.path.isfile(pdf_path):
         return None
-
-    path = Path(pdf_path)
-    unlocked_path = path.parent / f"{path.stem}_unlocked{path.suffix}"
 
     for pwd in passwords:
         try:
             with pikepdf.open(pdf_path, password=pwd) as pdf:
-                pdf.save(unlocked_path)
-            return str(unlocked_path)
+                tmp = tempfile.NamedTemporaryFile(
+                    suffix=".pdf", prefix="burnrate_unlocked_", delete=False,
+                )
+                pdf.save(tmp.name)
+                tmp.close()
+                return tmp.name
         except pikepdf.PasswordError:
             continue
         except Exception as e:

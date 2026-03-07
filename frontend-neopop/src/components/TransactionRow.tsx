@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Typography, Tag } from '@cred/neopop-web/lib/components';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
+import styled from 'styled-components';
 import { formatCurrency } from '@/lib/utils';
 import type { Transaction } from '@/lib/types';
 import { CATEGORY_CONFIG, BANK_CONFIG } from '@/lib/types';
@@ -52,6 +54,27 @@ const ICON_MAP: Record<string, LucideIcon> = {
   MoreHorizontal,
 };
 
+const TagBtn = styled.div`
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+`;
+
+const RowContainer = styled.div<{ $isCcPayment: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  background-color: ${({ $isCcPayment }) => $isCcPayment ? 'rgba(107,114,128,0.08)' : 'rgba(255,255,255,0.03)'};
+  border-radius: 8px;
+  margin-bottom: 4px;
+  opacity: ${({ $isCcPayment }) => $isCcPayment ? 0.7 : 1};
+
+  &:hover ${TagBtn} {
+    opacity: 1;
+  }
+`;
+
 interface TransactionRowProps {
   transaction: Transaction;
   className?: string;
@@ -59,10 +82,11 @@ interface TransactionRowProps {
 
 export function TransactionRow({ transaction, className }: TransactionRowProps) {
   const [tags, setTags] = useState<string[]>(transaction.tags ?? []);
-  const [isHovered, setIsHovered] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [catMap, setCatMap] = useState<Record<string, { name: string; color: string; icon: string }>>({});
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const tagBtnRef = useRef<HTMLSpanElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +108,21 @@ export function TransactionRow({ transaction, className }: TransactionRowProps) 
     setTags(transaction.tags ?? []);
   }, [transaction.id, transaction.tags?.join(',')]);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+        tagBtnRef.current && !tagBtnRef.current.contains(e.target as Node)
+      ) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [dropdownOpen]);
+
   const dynamicCat = catMap[transaction.category];
   const catColor = dynamicCat?.color ?? CATEGORY_CONFIG[transaction.category]?.color ?? '#9CA3AF';
   const catLabel = dynamicCat?.name ?? CATEGORY_CONFIG[transaction.category]?.label ?? transaction.category;
@@ -94,24 +133,7 @@ export function TransactionRow({ transaction, className }: TransactionRowProps) 
   const isCcPayment = transaction.category === 'cc_payment';
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        padding: '14px 16px',
-        backgroundColor: isCcPayment ? 'rgba(107,114,128,0.08)' : 'rgba(255,255,255,0.03)',
-        borderRadius: 8,
-        marginBottom: 4,
-        opacity: isCcPayment ? 0.7 : 1,
-      }}
-      className={className}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setDropdownOpen(false);
-      }}
-    >
+    <RowContainer $isCcPayment={isCcPayment} className={className}>
       <div
         style={{
           width: 40,
@@ -151,44 +173,45 @@ export function TransactionRow({ transaction, className }: TransactionRowProps) 
               ))}
             </div>
           )}
-          {isHovered && availableTags.length > 0 && (
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-              <span
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDropdownOpen(!dropdownOpen);
-                }}
+          <TagBtn style={{ position: 'relative' }}>
+            <span
+              ref={tagBtnRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDropdownOpen(!dropdownOpen);
+              }}
+              style={{
+                padding: '1px 8px 1px 8px',
+                borderRadius: 0,
+                border: '1px solid rgba(255,255,255,0.15)',
+                cursor: 'pointer',
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                position: 'relative',
+              }}
+            >
+              <Typography as="span" fontType={FontType.BODY} fontSize={11} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
+                Tag Transaction ▾
+              </Typography>
+            </span>
+            {dropdownOpen && createPortal(
+              <div
+                ref={dropdownRef}
                 style={{
-                  padding: '1px 8px 1px 8px',
-                  borderRadius: 0,
+                  position: 'fixed',
+                  top: (tagBtnRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                  left: tagBtnRef.current?.getBoundingClientRect().left ?? 0,
+                  background: colorPalette.popBlack[300],
                   border: '1px solid rgba(255,255,255,0.15)',
-                  cursor: 'pointer',
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  position: 'relative',
+                  borderRadius: 8,
+                  padding: availableTags.length > 0 ? 4 : '10px 14px',
+                  zIndex: 9999,
+                  minWidth: 140,
+                  maxHeight: 200,
+                  overflow: 'auto',
                 }}
               >
-                <Typography as="span" fontType={FontType.BODY} fontSize={11} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
-                  Tag Transaction ▾
-                </Typography>
-              </span>
-              {dropdownOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    marginTop: 4,
-                    background: colorPalette.popBlack[300],
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    borderRadius: 8,
-                    padding: 4,
-                    zIndex: 9999,
-                    minWidth: 140,
-                    maxHeight: 200,
-                    overflow: 'auto',
-                  }}
-                >
-                  {availableTags.map((tagName) => {
+                {availableTags.length > 0 ? (
+                  availableTags.map((tagName) => {
                     const isSelected = tags.includes(tagName);
                     const disabled = !isSelected && tags.length >= 3;
                     return (
@@ -217,11 +240,22 @@ export function TransactionRow({ transaction, className }: TransactionRowProps) 
                         {isSelected ? '✓' : ''} {tagName}
                       </div>
                     );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+                  })
+                ) : (
+                  <Typography
+                    fontType={FontType.BODY}
+                    fontSize={12}
+                    fontWeight={FontWeights.REGULAR}
+                    color="rgba(255,255,255,0.5)"
+                    style={{ maxWidth: 180, lineHeight: '1.4' }}
+                  >
+                    You need to define tags on the Customize page first in order to use them.
+                  </Typography>
+                )}
+              </div>,
+              document.body
+            )}
+          </TagBtn>
         </div>
 
         {/* Category row */}
@@ -268,6 +302,6 @@ export function TransactionRow({ transaction, className }: TransactionRowProps) 
           })}
         </Typography>
       </div>
-    </div>
+    </RowContainer>
   );
 }

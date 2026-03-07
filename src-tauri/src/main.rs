@@ -35,18 +35,36 @@ fn main() {
                             let s = String::from_utf8_lossy(&line);
                             println!("SIDECAR STDOUT: {}", s);
                             if s.contains("Application startup complete") {
-                                if let Some(window) = app_handle.get_webview_window("main") {
-                                    let _ = window.eval("window.location.reload()");
-                                }
+                                let app_handle_inner = app_handle.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    // Show splash screen for 3 seconds
+                                    std::thread::sleep(std::time::Duration::from_secs(3));
+                                    if let Some(splash) = app_handle_inner.get_webview_window("splashscreen") {
+                                        let _ = splash.close();
+                                    }
+                                    if let Some(window) = app_handle_inner.get_webview_window("main") {
+                                        let _ = window.show();
+                                        let _ = window.eval("window.location.reload()");
+                                    }
+                                });
                             }
                         }
                         CommandEvent::Stderr(line) => {
                             let s = String::from_utf8_lossy(&line);
                             println!("SIDECAR STDERR: {}", s);
                             if s.contains("Application startup complete") {
-                                if let Some(window) = app_handle.get_webview_window("main") {
-                                    let _ = window.eval("window.location.reload()");
-                                }
+                                let app_handle_inner = app_handle.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    // Show splash screen for 3 seconds
+                                    std::thread::sleep(std::time::Duration::from_secs(3));
+                                    if let Some(splash) = app_handle_inner.get_webview_window("splashscreen") {
+                                        let _ = splash.close();
+                                    }
+                                    if let Some(window) = app_handle_inner.get_webview_window("main") {
+                                        let _ = window.show();
+                                        let _ = window.eval("window.location.reload()");
+                                    }
+                                });
                             }
                         }
                         CommandEvent::Terminated(payload) => {
@@ -61,20 +79,44 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                if window.label() != "main" {
-                    return;
+            match event {
+                tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed => {
+                    if window.label() != "main" {
+                        return;
+                    }
+                    if let Some(child) = window
+                        .app_handle()
+                        .state::<ServerChild>()
+                        .0
+                        .lock()
+                        .unwrap()
+                        .take()
+                    {
+                        let pid = child.pid();
+                        println!("Killing sidecar and its children (PID {})...", pid);
+                        
+                        // Robust cleanup: kill children and any leftover server processes by name
+                        #[cfg(target_os = "macos")]
+                        {
+                            let _ = std::process::Command::new("pkill")
+                                .arg("-P")
+                                .arg(pid.to_string())
+                                .spawn();
+                            
+                            // Extra safety: pkill by name for this bundle's server
+                            let _ = std::process::Command::new("pkill")
+                                .arg("-f")
+                                .arg("burnrate-server")
+                                .spawn();
+                        }
+
+                        let _ = child.kill();
+                        
+                        // Ensure the app exits completely
+                        window.app_handle().exit(0);
+                    }
                 }
-                if let Some(child) = window
-                    .app_handle()
-                    .state::<ServerChild>()
-                    .0
-                    .lock()
-                    .unwrap()
-                    .take()
-                {
-                    let _ = child.kill();
-                }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())

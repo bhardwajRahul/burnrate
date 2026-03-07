@@ -22,6 +22,7 @@ import { toast } from '@/components/Toast';
 import { RefreshCw, Palette, X, Trash2, Tag as TagIcon, Plus, AlertTriangle, MessageSquarePlus } from 'lucide-react';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { CloseButton } from '@/components/CloseButton';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import styled from 'styled-components';
 
 const PageLayout = styled.div`
@@ -318,6 +319,7 @@ export function ReparseRemoveModal({ open, onClose }: { open: boolean; onClose: 
   const [loading, setLoading] = useState(false);
   const [actioning, setActioning] = useState<string | null>(null);
   const [reparseAllRunning, setReparseAllRunning] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -380,18 +382,21 @@ export function ReparseRemoveModal({ open, onClose }: { open: boolean; onClose: 
   };
 
   const handleRemove = async (id: string) => {
-    if (!window.confirm('Delete this statement and all its transactions? This cannot be undone.')) {
-      return;
-    }
-    setActioning(id);
+    setConfirmDeleteId(id);
+  };
+
+  const executeRemove = async () => {
+    if (!confirmDeleteId) return;
+    setActioning(confirmDeleteId);
     try {
-      await deleteStatement(id);
+      await deleteStatement(confirmDeleteId);
       toast.success('Statement deleted');
-      setStatements((prev) => prev.filter((s) => s.id !== id));
+      setStatements((prev) => prev.filter((s) => s.id !== confirmDeleteId));
     } catch (e) {
       toast.error(extractErrorMsg(e, 'Delete failed'));
     } finally {
       setActioning(null);
+      setConfirmDeleteId(null);
     }
   };
 
@@ -517,48 +522,48 @@ export function ReparseRemoveModal({ open, onClose }: { open: boolean; onClose: 
                           )}
                         </Column>
                         <Column alignItems="center" gap={2}>
-                        <Row alignItems='center' justifyContent="space-evenly" gap={20}>
-                          <Button
-                            variant="primary"
-                            kind="elevated"
-                            size="small"
-                            colorMode="dark"
-                            onClick={() => handleReparse(s.id)}
-                            disabled={!!actioning}
-                            style={{ minWidth: 'auto', marginRight: 10 }}
-                          >
-                            <Row
-                              gap={4}
-                              alignItems="center"
-                              justifyContent="center"
+                          <Row alignItems='center' justifyContent="space-evenly" gap={20}>
+                            <Button
+                              variant="primary"
+                              kind="elevated"
+                              size="small"
+                              colorMode="dark"
+                              onClick={() => handleReparse(s.id)}
+                              disabled={!!actioning}
+                              style={{ minWidth: 'auto', marginRight: 10 }}
                             >
-                              <RefreshCw size={14} style={{ marginRight: 5 }} />
-                              {isError ? 'Retry' : 'Refresh'}
-                            </Row>
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            kind="elevated"
-                            size="small"
-                            colorMode="dark"
-                            onClick={() => handleRemove(s.id)}
-                            disabled={!!actioning}
-                            style={{
-                              minWidth: 'auto',
-                              color: mainColors.red,
-                              borderColor: 'rgba(238,77,55,0.4)',
-                            }}
-                          >
-                            <Row
-                              gap={4}
-                              alignItems="center"
-                              justifyContent="center"
+                              <Row
+                                gap={4}
+                                alignItems="center"
+                                justifyContent="center"
+                              >
+                                <RefreshCw size={14} style={{ marginRight: 5 }} />
+                                {isError ? 'Retry' : 'Refresh'}
+                              </Row>
+                            </Button>
+                            <Button
+                              variant="secondary"
+                              kind="elevated"
+                              size="small"
+                              colorMode="dark"
+                              onClick={() => handleRemove(s.id)}
+                              disabled={!!actioning}
+                              style={{
+                                minWidth: 'auto',
+                                color: mainColors.red,
+                                borderColor: 'rgba(238,77,55,0.4)',
+                              }}
                             >
-                            <Trash2 size={14} style={{ marginRight: 4 }} />
-                            Remove
-                            </Row>
-                          </Button>
-                        </Row>
+                              <Row
+                                gap={4}
+                                alignItems="center"
+                                justifyContent="center"
+                              >
+                                <Trash2 size={14} style={{ marginRight: 4 }} />
+                                Remove
+                              </Row>
+                            </Button>
+                          </Row>
                         </Column>
                       </div>
                     </div>
@@ -568,6 +573,15 @@ export function ReparseRemoveModal({ open, onClose }: { open: boolean; onClose: 
           )}
         </div>
       </ElevatedCard>
+      <ConfirmModal
+        open={confirmDeleteId !== null}
+        title="Delete Statement"
+        message="Delete this statement and all its transactions? This cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={executeRemove}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </ModalOverlay>
   );
 }
@@ -928,7 +942,7 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEdit(cat.id, 'keywords', e.target.value)}
                       />
                     </td>
-                    
+
                     <td>
                       <div style={{ minWidth: 20 }}></div>
                       <div style={{ marginRight: 100 }}></div>
@@ -994,7 +1008,7 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
                       colorMode="dark"
                       onClick={handleAdd}
                       disabled={customCount >= 20 || !newRow.name.trim()}
-                      style={{  minWidth: 'auto', marginRight: 10, marginLeft: -40 }}
+                      style={{ minWidth: 'auto', marginRight: 10, marginLeft: -40 }}
                     >
                       <Plus size={16} />
                     </Button>
@@ -1004,29 +1018,29 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
             </CategoryTable>
           )}
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: 12,
-                padding: '20px 20px 0px 20px',
-                borderTop: '1px solid rgba(255,255,255,0.1)',
-              }}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 12,
+              padding: '20px 20px 0px 20px',
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+            }}
+          >
+            <Button variant="secondary" kind="elevated" size="small" colorMode="dark" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              kind="elevated"
+              size="small"
+              colorMode="dark"
+              onClick={handleSaveAll}
+              disabled={loading || (!hasAnyEdits && !newRow.name.trim()) || saving}
             >
-              <Button variant="secondary" kind="elevated" size="small" colorMode="dark" onClick={handleCancel}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                kind="elevated"
-                size="small"
-                colorMode="dark"
-                onClick={handleSaveAll}
-                disabled={loading || (!hasAnyEdits && !newRow.name.trim()) || saving}
-              >
-                {saving ? 'Saving...' : 'Update All'}
-              </Button>
-            </div>
+              {saving ? 'Saving...' : 'Update All'}
+            </Button>
+          </div>
         </div>
       </ElevatedCard>
     </ModalOverlay>

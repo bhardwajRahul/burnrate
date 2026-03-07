@@ -5,7 +5,7 @@ import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import type { Bank } from '@/lib/types';
 import { BANK_CONFIG } from '@/lib/types';
-import { Plus, Trash2, FolderOpen, CreditCard, Shield } from 'lucide-react';
+import { Plus, Trash2, FolderOpen, Shield } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface CardEntry {
@@ -117,7 +117,7 @@ export function SetupForm({ onSubmit, className, initialData, isUpdate = false }
       <div style={{ width: '100%', maxWidth: 448, boxSizing: 'border-box' }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
-            <CreditCard size={28} color={colorPalette.rss[500]} />
+            <img src="/burnrate-logo.svg" alt="Burnrate" style={{ width: 28, height: 28 }} />
             <Typography fontType={FontType.BODY} fontSize={24} fontWeight={FontWeights.BOLD} color={mainColors.white} style={{ letterSpacing: '-0.02em' }}>
               burnrate
             </Typography>

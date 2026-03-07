@@ -103,7 +103,7 @@ echo ""
 
 # ---- Step 5: Build Tauri app ----
 echo "==> [5/5] Building Tauri native app..."
-CI=false cargo tauri build --bundles app
+CI=false cargo tauri build --bundles app,dmg
 echo ""
 
 # ---- Prepare artifacts ----

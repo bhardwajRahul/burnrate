@@ -273,67 +273,77 @@ function AnalyticsContent() {
         </ActionBar>
 
         <MetricsRow>
-          <div style={{ padding: 20, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <Wallet size={18} color={colorPalette.rss[500]} />
-              <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.5)">
-                Total Spends
-              </Typography>
-            </div>
-            <Typography fontType={FontType.BODY} fontSize={28} fontWeight={FontWeights.BOLD} color={mainColors.white} style={{ letterSpacing: '-0.02em', marginBottom: 8 }}>
-              {formatCurrency(summary?.totalSpend ?? 0)}
-            </Typography>
-            <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
-              {periodLabel}
-            </Typography>
-          </div>
-
-          <div style={{ padding: 20, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <Gauge size={18} color={colorPalette.rss[500]} />
-              <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.5)">
-                Credit Utilization
-              </Typography>
-            </div>
-            {creditUtilization.limit === 0 ? (
-              <Typography fontType={FontType.BODY} fontSize={14} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginTop: 8 }}>
-                Credit limit not available
-              </Typography>
-            ) : (
-              <>
-                <Typography fontType={FontType.BODY} fontSize={28} fontWeight={FontWeights.BOLD} color={mainColors.white} style={{ letterSpacing: '-0.02em', marginBottom: 8 }}>
-                  {creditUtilization.ratio}%
-                </Typography>
-                <div style={{ width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-                  <div style={{
-                    height: '100%',
-                    width: `${creditUtilization.ratio}%`,
-                    backgroundColor: creditUtilization.ratio > 75 ? mainColors.red : creditUtilization.ratio > 50 ? colorPalette.warning[500] : mainColors.green,
-                    borderRadius: 3,
-                    transition: 'width 0.5s',
-                  }} />
+          {loading ? (
+            <>
+              <Skeleton style={{ minHeight: 120 }} />
+              <Skeleton style={{ minHeight: 120 }} />
+              <Skeleton style={{ minHeight: 120 }} />
+            </>
+          ) : (
+            <>
+              <div style={{ padding: 20, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <Wallet size={18} color={colorPalette.rss[500]} />
+                  <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.5)">
+                    Total Spends
+                  </Typography>
                 </div>
-                <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
-                  {formatCurrency(creditUtilization.spend)} out of {formatCurrency(creditUtilization.limit)} × {creditUtilization.months} month{creditUtilization.months === 1 ? '' : 's'}
+                <Typography fontType={FontType.BODY} fontSize={28} fontWeight={FontWeights.BOLD} color={mainColors.white} style={{ letterSpacing: '-0.02em', marginBottom: 8 }}>
+                  {formatCurrency(summary?.totalSpend ?? 0)}
                 </Typography>
-              </>
-            )}
-          </div>
+                <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
+                  {periodLabel}
+                </Typography>
+              </div>
 
-          <div style={{ padding: 20, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-              <TrendingUp size={18} color={mainColors.green} />
-              <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.5)">
-                Avg Monthly Spend
-              </Typography>
-            </div>
-            <Typography fontType={FontType.BODY} fontSize={28} fontWeight={FontWeights.BOLD} color={mainColors.white} style={{ letterSpacing: '-0.02em', marginBottom: 8 }}>
-              {formatCurrency(avgMonthlySpend)}
-            </Typography>
-            <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
-              Across {monthsInRange} month{monthsInRange !== 1 ? 's' : ''}
-            </Typography>
-          </div>
+              <div style={{ padding: 20, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <Gauge size={18} color={colorPalette.rss[500]} />
+                  <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.5)">
+                    Credit Utilization
+                  </Typography>
+                </div>
+                {creditUtilization.limit === 0 ? (
+                  <Typography fontType={FontType.BODY} fontSize={14} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginTop: 8 }}>
+                    Credit limit not available
+                  </Typography>
+                ) : (
+                  <>
+                    <Typography fontType={FontType.BODY} fontSize={28} fontWeight={FontWeights.BOLD} color={mainColors.white} style={{ letterSpacing: '-0.02em', marginBottom: 8 }}>
+                      {creditUtilization.ratio}%
+                    </Typography>
+                    <div style={{ width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${creditUtilization.ratio}%`,
+                        backgroundColor: creditUtilization.ratio > 75 ? mainColors.red : creditUtilization.ratio > 50 ? colorPalette.warning[500] : mainColors.green,
+                        borderRadius: 3,
+                        transition: 'width 0.5s',
+                      }} />
+                    </div>
+                    <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
+                      {formatCurrency(creditUtilization.spend)} out of {formatCurrency(creditUtilization.limit)} × {creditUtilization.months} month{creditUtilization.months === 1 ? '' : 's'}
+                    </Typography>
+                  </>
+                )}
+              </div>
+
+              <div style={{ padding: 20, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                  <TrendingUp size={18} color={mainColors.green} />
+                  <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.5)">
+                    Avg Monthly Spend
+                  </Typography>
+                </div>
+                <Typography fontType={FontType.BODY} fontSize={28} fontWeight={FontWeights.BOLD} color={mainColors.white} style={{ letterSpacing: '-0.02em', marginBottom: 8 }}>
+                  {formatCurrency(avgMonthlySpend)}
+                </Typography>
+                <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
+                  Across {monthsInRange} month{monthsInRange !== 1 ? 's' : ''}
+                </Typography>
+              </div>
+            </>
+          )}
         </MetricsRow>
 
         <Grid>
