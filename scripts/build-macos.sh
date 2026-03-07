@@ -22,12 +22,12 @@ echo "==> Build target: ${TRIPLE}"
 echo ""
 
 # ---- Step 1: Frontend ----
-echo "==> [1/5] Building React frontend..."
+echo "==> [1/6] Building React frontend..."
 (cd frontend-neopop && npm ci && npm run build)
 echo ""
 
 # ---- Step 2: Python sidecar ----
-echo "==> [2/5] Building Python sidecar with PyInstaller..."
+echo "==> [2/6] Building Python sidecar with PyInstaller..."
 
 VENV_DIR="${ROOT}/.venv-build"
 if [ ! -d "$VENV_DIR" ]; then
@@ -86,23 +86,83 @@ codesign --force --sign - "src-tauri/binaries/burnrate-server-${TRIPLE}"
 echo ""
 
 # ---- Step 3: Icons ----
-echo "==> [3/5] Generating app icons..."
+echo "==> [3/6] Generating app icons..."
 if [ -f scripts/generate-icons.sh ]; then
   bash scripts/generate-icons.sh
 else
   echo "    Icon script not found, using existing icons"
 fi
+
+echo "==> [3b/6] Applying black backgrounds to icons..."
+source "$VENV_DIR/bin/activate"
+pip install --quiet Pillow
+python3 - "$ROOT" << 'PYEOF'
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+try:
+    from PIL import Image
+except ImportError:
+    print("    ERROR: Pillow required. Run: pip install Pillow", file=sys.stderr)
+    sys.exit(1)
+
+root = Path(sys.argv[1])
+icon_dir = root / "src-tauri" / "icons"
+black = (0, 0, 0, 255)
+
+def blacken_png(path: Path):
+    img = Image.open(path).convert("RGBA")
+    bg = Image.new("RGBA", img.size, black)
+    bg.paste(img, mask=img.split()[3])
+    return bg.convert("RGBA")
+
+for name in ["32x32.png", "128x128.png", "128x128@2x.png", "icon.png"]:
+    p = icon_dir / name
+    if p.exists():
+        blacken_png(p).save(p)
+        print(f"    Blackened {name}")
+
+# Regenerate .icns
+iconset = icon_dir / "icon.iconset"
+iconset.mkdir(exist_ok=True)
+try:
+    base = Image.open(icon_dir / "icon.png").convert("RGBA")
+    for s in [16, 32, 64, 128, 256, 512]:
+        resized = base.resize((s, s), Image.Resampling.LANCZOS)
+        resized.save(iconset / f"icon_{s}x{s}.png")
+        if s * 2 <= 1024:
+            resized = base.resize((s * 2, s * 2), Image.Resampling.LANCZOS)
+            resized.save(iconset / f"icon_{s}x{s}@2x.png")
+    subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(icon_dir / "icon.icns")], check=True)
+    shutil.rmtree(iconset)
+    print("    Regenerated icon.icns")
+except Exception as e:
+    print(f"    icon.icns skipped: {e}")
+
+# Regenerate .ico
+try:
+    img = Image.open(icon_dir / "icon.png").convert("RGBA")
+    img.save(icon_dir / "icon.ico", format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (256, 256)])
+    print("    Regenerated icon.ico")
+except Exception as e:
+    print(f"    icon.ico skipped: {e}")
+
+print("==> Icon blackening complete")
+PYEOF
 echo ""
 
 # ---- Step 4: Tauri CLI ----
-echo "==> [4/5] Ensuring Tauri CLI is installed..."
+echo "==> [4/6] Ensuring Tauri CLI is installed..."
 if ! command -v cargo-tauri &>/dev/null; then
   cargo install tauri-cli --version "^2"
 fi
 echo ""
 
 # ---- Step 5: Build Tauri app ----
-echo "==> [5/5] Building Tauri native app..."
+echo "==> [5/6] Building Tauri native app..."
 CI=false cargo tauri build --bundles app,dmg
 echo ""
 

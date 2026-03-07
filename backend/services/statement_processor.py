@@ -11,25 +11,29 @@ from sqlalchemy.orm import Session
 
 from backend.models.database import SessionLocal
 from backend.models.models import Card, Statement, Settings, Transaction
-from backend.parsers.axis import AxisParser
-from backend.parsers.detector import detect_bank
-from backend.parsers.federal import FederalBankParser
-from backend.parsers.generic import GenericParser
-from backend.parsers.hdfc import HDFCParser
-from backend.parsers.icici import ICICIParser
-from backend.parsers.indian_bank import IndianBankParser
 from backend.services.categorizer import categorize
-from backend.services.pdf_unlock import generate_passwords, is_encrypted, unlock_pdf
+from backend.services.pdf_unlock import _validate_pdf_path, generate_passwords, is_encrypted, unlock_pdf
 
 logger = logging.getLogger(__name__)
 
-PARSERS: Dict[str, Type] = {
-    "hdfc": HDFCParser,
-    "icici": ICICIParser,
-    "axis": AxisParser,
-    "federal": FederalBankParser,
-    "indian_bank": IndianBankParser,
-}
+
+def _get_parsers() -> Dict[str, Type]:
+    """Lazy-load parsers (and thus pdfplumber) only when processing is triggered."""
+    from backend.parsers.axis import AxisParser
+    from backend.parsers.federal import FederalBankParser
+    from backend.parsers.generic import GenericParser
+    from backend.parsers.hdfc import HDFCParser
+    from backend.parsers.icici import ICICIParser
+    from backend.parsers.indian_bank import IndianBankParser
+
+    return {
+        "hdfc": HDFCParser,
+        "icici": ICICIParser,
+        "axis": AxisParser,
+        "federal": FederalBankParser,
+        "indian_bank": IndianBankParser,
+    }
+
 
 SUPPORTED_BANKS = [
     "hdfc", "icici", "axis", "sbi", "amex", "idfc_first",
@@ -84,6 +88,8 @@ def process_statement(
     try:
         if not os.path.isfile(pdf_path):
             return {"status": "error", "message": "File not found", "count": 0}
+        if not _validate_pdf_path(pdf_path):
+            return {"status": "error", "message": "Invalid file path", "count": 0}
 
         file_hash = _compute_hash(pdf_path)
 
@@ -100,6 +106,8 @@ def process_statement(
 
         # Detect bank if not provided
         if not bank:
+            from backend.parsers.detector import detect_bank
+
             bank = detect_bank(pdf_path)
 
         profile = _get_user_profile(db_session)
@@ -112,6 +120,8 @@ def process_statement(
             if unlocked:
                 working_path = unlocked
                 if not bank:
+                    from backend.parsers.detector import detect_bank
+
                     detected = detect_bank(working_path)
                     if detected and detected in SUPPORTED_BANKS:
                         bank = detected
@@ -169,6 +179,8 @@ def process_statement(
                     }
 
                 # Confirm bank from PDF content now that it's unlocked
+                from backend.parsers.detector import detect_bank
+
                 detected = detect_bank(working_path)
                 if detected and detected in SUPPORTED_BANKS:
                     bank = detected
@@ -200,8 +212,11 @@ def process_statement(
             }
 
         # Parse — use dedicated parser if available, else generic
-        if bank in PARSERS:
-            parser = PARSERS[bank]()
+        from backend.parsers.generic import GenericParser
+
+        parsers = _get_parsers()
+        if bank in parsers:
+            parser = parsers[bank]()
         else:
             parser = GenericParser(bank=bank)
         parsed = parser.parse(working_path)

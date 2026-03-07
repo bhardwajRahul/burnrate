@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button, InputField, Row } from '@cred/neopop-web/lib/components';
 import { Typography } from '@cred/neopop-web/lib/components';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
@@ -53,6 +53,11 @@ export function SetupForm({ onSubmit, className, initialData, isUpdate = false }
   const dobDayRef = useRef<HTMLInputElement | null>(null);
   const dobMonthRef = useRef<HTMLInputElement | null>(null);
   const dobYearRef = useRef<HTMLInputElement | null>(null);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => {
+    return () => { cancelledRef.current = true; };
+  }, []);
 
   useEffect(() => {
     if (initialData) {
@@ -67,25 +72,27 @@ export function SetupForm({ onSubmit, className, initialData, isUpdate = false }
     }
   }, [initialData]);
 
-  const handleBrowse = async () => {
+  const handleBrowse = useCallback(async () => {
     try {
       const { data } = await api.post('/settings/browse-folder');
+      if (cancelledRef.current) return;
       if (data.path) {
         setWatchFolder(data.path);
         return;
       }
     } catch {
+      if (cancelledRef.current) return;
       // Backend not available, fall through
     }
     if ('showDirectoryPicker' in window) {
       try {
         const handle = await (window as Window & { showDirectoryPicker: (opts?: { mode?: string }) => Promise<{ name: string }> }).showDirectoryPicker({ mode: 'read' });
-        setWatchFolder(handle.name);
+        if (!cancelledRef.current) setWatchFolder(handle.name);
       } catch {
         // User cancelled
       }
     }
-  };
+  }, []);
 
   const addCard = () => setCards([...cards, { bank: 'hdfc', last4: '' }]);
 

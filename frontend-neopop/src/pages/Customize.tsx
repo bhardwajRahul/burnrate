@@ -95,20 +95,6 @@ const ModalBackdrop = styled.div`
   backdrop-filter: blur(8px);
 `;
 
-const StyledInput = styled.input`
-  width: 100%;
-  padding: 12px 16px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  color: ${mainColors.white};
-  font-size: 14px;
-
-  &::placeholder {
-    color: rgba(255, 255, 255, 0.4);
-  }
-`;
-
 const TagsWrap = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -165,16 +151,23 @@ export function DefineTagsModal({ open, onClose }: { open: boolean; onClose: () 
   const [newTagName, setNewTagName] = useState('');
 
   useEffect(() => {
-    if (open) {
-      setLoading(true);
-      getTagDefinitions()
-        .then(setTags)
-        .catch(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    getTagDefinitions()
+      .then((data) => {
+        if (!cancelled) setTags(data);
+      })
+      .catch(() => {
+        if (!cancelled) {
           toast.error('Failed to load tags');
           setTags([]);
-        })
-        .finally(() => setLoading(false));
-    }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [open]);
 
   const handleAdd = async () => {
@@ -246,21 +239,13 @@ export function DefineTagsModal({ open, onClose }: { open: boolean; onClose: () 
           </Typography>
 
           <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-            <StyledInput
+            <InputField
+              colorMode="dark"
               value={newTagName}
-              onChange={(e) => setNewTagName(e.target.value.slice(0, 12))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTagName(e.target.value.slice(0, 12))}
               placeholder="Tag name (max 12 chars)"
               style={{ flex: 1, ...inputStyle, borderRadius: 0, padding: '0px 0px 0px 10px', fontSize: 16, fontWeight: FontWeights.MEDIUM, backgroundColor: colorPalette.black[100] }}
             />
-            {/* <div style={{ flex: 1 }}>
-              <input
-                type="text"
-                placeholder="Tag name (max 12 chars)"
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value.slice(0, 12))}
-                style={inputStyle}
-              />
-            </div> */}
             <Button
               variant="secondary"
               kind="flat"
@@ -288,22 +273,24 @@ export function DefineTagsModal({ open, onClose }: { open: boolean; onClose: () 
                   <Tag colorMode="dark" type="warning">
                     {t.name}
                   </Tag>
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    kind="flat"
+                    size="small"
+                    colorMode="dark"
                     onClick={() => handleDelete(t.id)}
                     style={{
                       background: 'transparent',
                       border: 'none',
                       color: colorPalette.black[50],
-                      cursor: 'pointer',
                       padding: 2,
-                      display: 'flex',
-                      alignItems: 'center',
+                      minWidth: 'auto',
                     }}
                     aria-label={`Delete ${t.name}`}
                   >
                     <X size={14} />
-                  </button>
+                  </Button>
                 </TagWithDelete>
               ))}
             </TagsWrap>
@@ -322,16 +309,23 @@ export function ReparseRemoveModal({ open, onClose }: { open: boolean; onClose: 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) {
-      setLoading(true);
-      getStatements()
-        .then(setStatements)
-        .catch(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    getStatements()
+      .then((data) => {
+        if (!cancelled) setStatements(data);
+      })
+      .catch(() => {
+        if (!cancelled) {
           toast.error('Failed to load statements');
           setStatements([]);
-        })
-        .finally(() => setLoading(false));
-    }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [open]);
 
   const fmt = (d: string) => {
@@ -494,15 +488,13 @@ export function ReparseRemoveModal({ open, onClose }: { open: boolean; onClose: 
                                   padding: '2px 8px',
                                   borderRadius: 6,
                                   background: 'rgba(229,161,0,0.15)',
-                                  fontSize: 11,
-                                  fontWeight: 600,
-                                  color: '#E5A100',
-                                  lineHeight: '16px',
                                   whiteSpace: 'nowrap',
                                 }}
                               >
                                 <AlertTriangle size={11} />
-                                Parse Error
+                                <Typography as="span" fontType={FontType.BODY} fontSize={11} fontWeight={FontWeights.SEMI_BOLD} color={colorPalette.warning[500]}>
+                                  Parse Error
+                                </Typography>
                               </span>
                             )}
                           </div>
@@ -655,9 +647,13 @@ function ColorPickerPopover({
         }}
       >
         {CATEGORY_COLORS.map((c) => (
-          <button
+          <Button
             key={c.value}
             type="button"
+            variant="secondary"
+            kind="flat"
+            size="small"
+            colorMode="dark"
             onClick={() => {
               onSelect(c.value);
               onClose();
@@ -666,15 +662,13 @@ function ColorPickerPopover({
             style={{
               width: 24,
               height: 24,
+              minWidth: 24,
               borderRadius: '50%',
               backgroundColor: c.value,
               border: selectedColor === c.value
                 ? `2px solid ${mainColors.white}`
                 : '2px solid transparent',
-              cursor: 'pointer',
               padding: 0,
-              outline: 'none',
-              transition: 'border-color 0.15s',
             }}
           />
         ))}
@@ -694,8 +688,12 @@ function ColorPickerButton({
 
   return (
     <div style={{ position: 'relative' }}>
-      <button
+      <Button
         type="button"
+        variant="secondary"
+        kind="flat"
+        size="small"
+        colorMode="dark"
         onClick={() => setOpen((v) => !v)}
         style={{
           display: 'flex',
@@ -705,8 +703,6 @@ function ColorPickerButton({
           border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 8,
           padding: '6px 10px',
-          cursor: 'pointer',
-          outline: 'none',
         }}
       >
         <span
@@ -721,7 +717,7 @@ function ColorPickerButton({
           }}
         />
         <Palette size={14} color="rgba(255,255,255,0.5)" />
-      </button>
+      </Button>
       {open && (
         <ColorPickerPopover
           selectedColor={color}
@@ -741,16 +737,23 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
   const [newRow, setNewRow] = useState({ name: '', keywords: '', color: colorPalette.rss[500] });
 
   useEffect(() => {
-    if (open) {
-      setLoading(true);
-      getAllCategories()
-        .then(setCategories)
-        .catch(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoading(true);
+    getAllCategories()
+      .then((data) => {
+        if (!cancelled) setCategories(data);
+      })
+      .catch(() => {
+        if (!cancelled) {
           toast.error('Failed to load categories');
           setCategories([]);
-        })
-        .finally(() => setLoading(false));
-    }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [open]);
 
   const customCount = categories.filter((c) => !c.is_prebuilt).length;
@@ -953,24 +956,26 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
                     </td>
                     <td>
                       {!cat.is_prebuilt && (
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          kind="flat"
+                          size="small"
+                          colorMode="dark"
                           onClick={() => handleDelete(cat)}
                           style={{
                             background: 'transparent',
                             border: 'none',
                             color: mainColors.red,
-                            cursor: 'pointer',
                             padding: 4,
-                            display: 'flex',
-                            alignItems: 'center',
+                            minWidth: 'auto',
                             marginRight: 10,
                             marginLeft: -20,
                           }}
                           aria-label={`Delete ${cat.name}`}
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </Button>
                       )}
                     </td>
                   </tr>

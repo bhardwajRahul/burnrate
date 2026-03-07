@@ -26,9 +26,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from backend.models.database import SessionLocal, init_db
 from backend.models.models import CategoryDefinition, Settings
 from backend.routers import analytics, cards, categories, settings, statements, tags, transactions
-from backend.routers.settings import get_watcher_observer, set_watcher_observer
-from backend.services import processing_queue
-from backend.services.folder_watcher import start_watcher, stop_watcher
 
 logger = logging.getLogger(__name__)
 
@@ -59,30 +56,57 @@ def seed_categories(db) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown lifecycle."""
+    import threading
+
     init_db()
 
     db = SessionLocal()
+    watch_folder = None
     try:
         seed_categories(db)
         s = db.query(Settings).first()
         if s and s.watch_folder:
-            observer = start_watcher(s.watch_folder, db_session_factory=SessionLocal)
-            if observer:
-                set_watcher_observer(observer)
-                logger.info("Folder watcher started on %s", s.watch_folder)
-            else:
-                logger.warning("Failed to start folder watcher for %s", s.watch_folder)
+            watch_folder = s.watch_folder
         else:
             logger.info("No watch_folder configured, skipping folder watcher")
     finally:
         db.close()
 
+    # Start folder watcher in a background thread so it doesn't block startup.
+    # On macOS, accessing TCC-protected directories (~/Documents etc.) triggers
+    # a system permission dialog that would otherwise block until the user responds,
+    # preventing "Application startup complete" from firing and keeping the splash
+    # screen visible indefinitely.
+    if watch_folder:
+        def _start_watcher_deferred() -> None:
+            from backend.services.folder_watcher import start_watcher
+            from backend.routers.settings import set_watcher_observer
+
+            try:
+                observer = start_watcher(watch_folder, db_session_factory=SessionLocal)
+                if observer:
+                    set_watcher_observer(observer)
+                    logger.info("Folder watcher started on %s", watch_folder)
+                else:
+                    logger.warning("Failed to start folder watcher for %s", watch_folder)
+            except Exception:
+                logger.exception("Error starting folder watcher")
+
+        threading.Thread(
+            target=_start_watcher_deferred,
+            name="watcher-init",
+            daemon=True,
+        ).start()
+
     yield
+
+    from backend.routers.settings import get_watcher_observer
+    from backend.services.folder_watcher import stop_watcher
+    from backend.services import processing_queue
 
     observer = get_watcher_observer()
     if observer:
         stop_watcher(observer)
-        set_watcher_observer(None)
     processing_queue.shutdown(wait=True)
 
 

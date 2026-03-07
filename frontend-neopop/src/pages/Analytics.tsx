@@ -303,7 +303,11 @@ function AnalyticsContent() {
                     Credit Utilization
                   </Typography>
                 </div>
-                {creditUtilization.limit === 0 ? (
+                {!activePreset ? (
+                  <Typography fontType={FontType.BODY} fontSize={13} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginTop: 12 }}>
+                    Select a time window to calculate this metric
+                  </Typography>
+                ) : creditUtilization.limit === 0 ? (
                   <Typography fontType={FontType.BODY} fontSize={14} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginTop: 8 }}>
                     Credit limit not available
                   </Typography>
@@ -335,12 +339,20 @@ function AnalyticsContent() {
                     Avg Monthly Spend
                   </Typography>
                 </div>
-                <Typography fontType={FontType.BODY} fontSize={28} fontWeight={FontWeights.BOLD} color={mainColors.white} style={{ letterSpacing: '-0.02em', marginBottom: 8 }}>
-                  {formatCurrency(avgMonthlySpend)}
-                </Typography>
-                <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
-                  Across {monthsInRange} month{monthsInRange !== 1 ? 's' : ''}
-                </Typography>
+                {!activePreset ? (
+                  <Typography fontType={FontType.BODY} fontSize={13} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginTop: 12 }}>
+                    Select a time window to calculate this metric
+                  </Typography>
+                ) : (
+                  <>
+                    <Typography fontType={FontType.BODY} fontSize={28} fontWeight={FontWeights.BOLD} color={mainColors.white} style={{ letterSpacing: '-0.02em', marginBottom: 8 }}>
+                      {formatCurrency(avgMonthlySpend)}
+                    </Typography>
+                    <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
+                      Across {monthsInRange} month{monthsInRange !== 1 ? 's' : ''}
+                    </Typography>
+                  </>
+                )}
               </div>
             </>
           )}

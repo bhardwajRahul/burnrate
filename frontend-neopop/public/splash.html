@@ -1,4 +1,10 @@
 <!DOCTYPE html>
+<!--
+  Plain HTML (no React): The splash is a separate Tauri window loaded from /splash.html.
+  The main React app loads in the hidden "main" window. The splash cannot use the main
+  window's React runtime. Using React would require a separate React build for splash,
+  adding complexity and startup time. Plain HTML/CSS loads instantly with zero bundle overhead.
+-->
 <html lang="en">
 
 <head>

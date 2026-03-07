@@ -60,26 +60,6 @@ const CardFooter = styled.div`
   gap: 12px;
 `;
 
-const RemoveButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
-  margin-right: 8px;
-  background: rgba(238, 77, 55, 0.15);
-  border: 1px solid rgba(238, 77, 55, 0.4);
-  border-radius: 8px;
-  color: ${mainColors.red};
-  cursor: pointer;
-  transition: background 0.2s;
-  flex-shrink: 0;
-
-  &:hover {
-    background: rgba(238, 77, 55, 0.3);
-  }
-`;
 
 const SpendInfo = styled.div`
   display: flex;
@@ -221,8 +201,10 @@ export function Cards() {
         </FilterRow>
 
         {loading ? (
-          <div style={{ color: 'rgba(255,255,255,0.6)', padding: 48 }}>
-            Loading cards...
+          <div style={{ padding: 48 }}>
+            <Typography fontType={FontType.BODY} fontSize={14} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.6)">
+              Loading cards...
+            </Typography>
           </div>
         ) : safeCards.length === 0 ? (
           <EmptyState>
@@ -276,14 +258,28 @@ export function Cards() {
                       {card.txnCount} transaction{card.txnCount !== 1 ? 's' : ''}
                     </Typography>
                   </SpendInfo>
-                  <RemoveButton
-                    onClick={(e) => {
+                  <Button
+                    variant="secondary"
+                    kind="flat"
+                    size="small"
+                    colorMode="dark"
+                    onClick={(e: React.MouseEvent) => {
                       e.stopPropagation();
                       handleRemoveCard(card.id, `${card.bank.toUpperCase()} ...${card.last4}`);
                     }}
+                    style={{
+                      minWidth: 32,
+                      height: 32,
+                      marginLeft: 'auto',
+                      marginRight: 8,
+                      background: 'rgba(238, 77, 55, 0.15)',
+                      border: '1px solid rgba(238, 77, 55, 0.4)',
+                      color: mainColors.red,
+                      padding: 0,
+                    }}
                   >
                     <Trash2 size={14} />
-                  </RemoveButton>
+                  </Button>
                 </CardFooter>
               </CardItem>
             ))}

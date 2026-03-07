@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from backend.models.database import SessionLocal, get_db
 from backend.models.models import Card, Settings
-from backend.services.folder_watcher import start_watcher, stop_watcher
 
 
 def _validate_watch_folder(folder: Optional[str]) -> Optional[str]:
@@ -143,7 +142,8 @@ def setup(
 
     db.commit()
 
-    # Start folder watcher if watch_folder is set
+    from backend.services.folder_watcher import start_watcher
+
     observer = None
     if body.watch_folder:
         observer = start_watcher(body.watch_folder, db_session_factory=SessionLocal)
@@ -192,6 +192,8 @@ def update_settings(
                 cards_added += 1
 
     db.commit()
+
+    from backend.services.folder_watcher import start_watcher, stop_watcher
 
     old_observer = get_watcher_observer()
     if old_observer:

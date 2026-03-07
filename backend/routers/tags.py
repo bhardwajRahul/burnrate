@@ -1,5 +1,6 @@
 """Tag definition API endpoints."""
 
+import logging
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +8,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.models.database import get_db
-from backend.models.models import TagDefinition
+from backend.models.models import TagDefinition, TransactionTag
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 
@@ -46,7 +49,8 @@ def delete_tag_definition(tag_id: str, db: Session = Depends(get_db)) -> Dict[st
         raise HTTPException(status_code=404, detail="Tag not found")
     # First delete all transaction tags using this name (cascade)
     db.query(TransactionTag).filter(TransactionTag.tag == tag.name).delete(synchronize_session=False)
-    
+
     db.delete(tag)
     db.commit()
+    logger.info("Tag definition deleted: id=%s", tag_id)
     return {"status": "ok"}

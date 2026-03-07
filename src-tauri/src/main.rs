@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::sync::Mutex;
+use std::time::Instant;
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_shell::process::CommandChild;
@@ -13,6 +14,7 @@ fn main() {
         .plugin(tauri_plugin_process::init())
         .manage(ServerChild(Mutex::new(None)))
         .setup(|app| {
+            let app_start = Instant::now();
             let sidecar = app
                 .shell()
                 .sidecar("burnrate-server")
@@ -27,6 +29,34 @@ fn main() {
                 .replace(child);
 
             let app_handle = app.handle().clone();
+            let min_splash_secs = 3u64;
+
+            fn close_splash_and_show_main(
+                app_handle: &tauri::AppHandle,
+                elapsed: std::time::Duration,
+                min_splash_secs: u64,
+            ) {
+                let app_handle_inner = app_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    let remaining = if elapsed.as_secs() >= min_splash_secs {
+                        std::time::Duration::ZERO
+                    } else {
+                        std::time::Duration::from_secs(min_splash_secs)
+                            .saturating_sub(elapsed)
+                    };
+                    if !remaining.is_zero() {
+                        std::thread::sleep(remaining);
+                    }
+                    if let Some(splash) = app_handle_inner.get_webview_window("splashscreen") {
+                        let _ = splash.close();
+                    }
+                    if let Some(window) = app_handle_inner.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.eval("window.location.reload()");
+                    }
+                });
+            }
+
             tauri::async_runtime::spawn(async move {
                 use tauri_plugin_shell::process::CommandEvent;
                 while let Some(event) = rx.recv().await {
@@ -35,36 +65,14 @@ fn main() {
                             let s = String::from_utf8_lossy(&line);
                             println!("SIDECAR STDOUT: {}", s);
                             if s.contains("Application startup complete") {
-                                let app_handle_inner = app_handle.clone();
-                                tauri::async_runtime::spawn(async move {
-                                    // Show splash screen for 3 seconds
-                                    std::thread::sleep(std::time::Duration::from_secs(3));
-                                    if let Some(splash) = app_handle_inner.get_webview_window("splashscreen") {
-                                        let _ = splash.close();
-                                    }
-                                    if let Some(window) = app_handle_inner.get_webview_window("main") {
-                                        let _ = window.show();
-                                        let _ = window.eval("window.location.reload()");
-                                    }
-                                });
+                                close_splash_and_show_main(&app_handle, app_start.elapsed(), min_splash_secs);
                             }
                         }
                         CommandEvent::Stderr(line) => {
                             let s = String::from_utf8_lossy(&line);
                             println!("SIDECAR STDERR: {}", s);
                             if s.contains("Application startup complete") {
-                                let app_handle_inner = app_handle.clone();
-                                tauri::async_runtime::spawn(async move {
-                                    // Show splash screen for 3 seconds
-                                    std::thread::sleep(std::time::Duration::from_secs(3));
-                                    if let Some(splash) = app_handle_inner.get_webview_window("splashscreen") {
-                                        let _ = splash.close();
-                                    }
-                                    if let Some(window) = app_handle_inner.get_webview_window("main") {
-                                        let _ = window.show();
-                                        let _ = window.eval("window.location.reload()");
-                                    }
-                                });
+                                close_splash_and_show_main(&app_handle, app_start.elapsed(), min_splash_secs);
                             }
                         }
                         CommandEvent::Terminated(payload) => {

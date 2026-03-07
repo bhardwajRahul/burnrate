@@ -5,9 +5,32 @@ import os
 from pathlib import Path
 from typing import List, Optional
 
-import pikepdf
-
 logger = logging.getLogger(__name__)
+
+
+def _validate_pdf_path(pdf_path: str) -> bool:
+    """
+    Validate path to prevent traversal. Reject '..', symlinks outside allowed bases.
+    Allowed: paths under DATA_DIR, user home, or /Volumes.
+    """
+    from backend.models.database import DATA_DIR
+
+    if not pdf_path or ".." in pdf_path:
+        return False
+    try:
+        resolved = Path(pdf_path).resolve()
+        if not resolved.exists() or not resolved.is_file():
+            return False
+        real = resolved.resolve()
+        home = Path.home().resolve()
+        volumes = Path("/Volumes").resolve()
+        return (
+            str(real).startswith(str(DATA_DIR.resolve()))
+            or str(real).startswith(str(home))
+            or str(real).startswith(str(volumes))
+        )
+    except (OSError, RuntimeError):
+        return False
 
 def generate_passwords(
     bank: str,
@@ -151,7 +174,9 @@ def unlock_pdf(pdf_path: str, passwords: List[str]) -> Optional[str]:
     """
     import tempfile
 
-    if not os.path.isfile(pdf_path):
+    import pikepdf
+
+    if not _validate_pdf_path(pdf_path):
         return None
 
     for pwd in passwords:
@@ -165,8 +190,8 @@ def unlock_pdf(pdf_path: str, passwords: List[str]) -> Optional[str]:
                 return tmp.name
         except pikepdf.PasswordError:
             continue
-        except Exception as e:
-            logger.debug("Unlock attempt failed: %s: %s", type(e).__name__, e)
+        except Exception:
+            logger.debug("Unlock attempt failed for password candidate")
             continue
 
     return None
@@ -174,6 +199,10 @@ def unlock_pdf(pdf_path: str, passwords: List[str]) -> Optional[str]:
 
 def is_encrypted(pdf_path: str) -> bool:
     """Check if PDF is password-protected."""
+    import pikepdf
+
+    if not _validate_pdf_path(pdf_path):
+        return False
     try:
         with pikepdf.open(pdf_path) as pdf:
             return pdf.is_encrypted

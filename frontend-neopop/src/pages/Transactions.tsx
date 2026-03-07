@@ -72,13 +72,6 @@ const DateGroup = styled.div`
   margin-bottom: 24px;
 `;
 
-const DateLabel = styled.div`
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-`;
 
 const PAGE_SIZE = 20;
 
@@ -262,13 +255,13 @@ function TransactionsContent() {
                   border: '1px solid rgba(255,255,255,0.15)',
                   borderRadius: 8,
                   padding: '6px 10px',
-                  fontSize: 11,
-                  color: 'rgba(255,255,255,0.6)',
                   zIndex: 10,
                   whiteSpace: 'nowrap',
                 }}
               >
-                Search by description or merchant name
+                <Typography fontType={FontType.BODY} fontSize={11} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.6)">
+                  Search by description or merchant name
+                </Typography>
               </div>
             )}
             <CompactSearchWrapper>
@@ -372,13 +365,13 @@ function TransactionsContent() {
                         border: '1px solid rgba(255,255,255,0.15)',
                         borderRadius: 8,
                         padding: '8px 12px',
-                        fontSize: 12,
-                        color: 'rgba(255,255,255,0.7)',
                         zIndex: 10,
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      Negative value means overall credit i.e. negative spends
+                      <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.7)">
+                        Negative value means overall credit i.e. negative spends
+                      </Typography>
                     </div>
                   )}
                 </div>
@@ -425,14 +418,14 @@ function TransactionsContent() {
           <TransactionList>
             {Object.entries(groupedByDate).map(([date, txs]) => (
               <DateGroup key={date}>
-                <DateLabel>
+                <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)" style={{ marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {new Date(date).toLocaleDateString('en-IN', {
                     weekday: 'long',
                     day: 'numeric',
                     month: 'long',
                     year: 'numeric',
                   })}
-                </DateLabel>
+                </Typography>
                 {txs.map((tx) => (
                   <TransactionRow key={tx.id} transaction={tx} />
                 ))}

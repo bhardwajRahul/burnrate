@@ -10,7 +10,6 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Callable, Dict, Optional
 
 from backend.models.database import SessionLocal
-from backend.services.statement_processor import process_statement
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +29,8 @@ def _process_one(
 
     Retries up to _MAX_RETRIES times on transient SQLite lock errors.
     """
+    from backend.services.statement_processor import process_statement
+
     factory = db_session_factory or SessionLocal
     for attempt in range(1, _MAX_RETRIES + 1):
         session = factory()

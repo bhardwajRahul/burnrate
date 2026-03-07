@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ElevatedCard } from '@cred/neopop-web/lib/components';
+import { ElevatedCard, InputField } from '@cred/neopop-web/lib/components';
 import { Typography } from '@cred/neopop-web/lib/components';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
@@ -266,20 +266,22 @@ export function FilterModal({ open, onClose }: FilterModalProps) {
           </Typography>
           <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
             <div style={{ flex: 1 }}>
-              <input
+              <InputField
+                colorMode="dark"
                 type="date"
                 className="filter-date-input"
                 value={localFrom}
-                onChange={(e) => setLocalFrom(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalFrom(e.target.value)}
                 style={inputStyle}
               />
             </div>
             <div style={{ flex: 1 }}>
-              <input
+              <InputField
+                colorMode="dark"
                 type="date"
                 className="filter-date-input"
                 value={localTo}
-                onChange={(e) => setLocalTo(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalTo(e.target.value)}
                 style={inputStyle}
               />
             </div>
@@ -304,20 +306,22 @@ export function FilterModal({ open, onClose }: FilterModalProps) {
           </Typography>
           <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
             <div style={{ flex: 1 }}>
-              <input
+              <InputField
+                colorMode="dark"
                 type="number"
                 placeholder="Min"
                 value={localMin}
-                onChange={(e) => setLocalMin(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalMin(e.target.value)}
                 style={inputStyle}
               />
             </div>
             <div style={{ flex: 1 }}>
-              <input
+              <InputField
+                colorMode="dark"
                 type="number"
                 placeholder="Max"
                 value={localMax}
-                onChange={(e) => setLocalMax(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocalMax(e.target.value)}
                 style={inputStyle}
               />
             </div>

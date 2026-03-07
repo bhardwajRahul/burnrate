@@ -13,8 +13,6 @@ MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB per file
 
 from backend.models.database import SessionLocal, UPLOADS_DIR, get_db
 from backend.models.models import ProcessingLog, Statement, Transaction
-from backend.services import processing_queue
-from backend.services.statement_processor import process_statement
 
 router = APIRouter(prefix="/statements", tags=["statements"])
 
@@ -27,6 +25,8 @@ def upload_statement(
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """Accept a single PDF file upload with optional bank and password params."""
+    from backend.services.statement_processor import process_statement
+
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="PDF file required")
 
@@ -56,6 +56,8 @@ async def upload_bulk(
 ) -> Dict[str, Any]:
     """Accept multiple PDF files. Files are queued and processed with
     max 10 concurrently via the shared processing pool."""
+    from backend.services import processing_queue
+
     saved: List[str] = []
     skipped: List[str] = []
 
@@ -114,6 +116,8 @@ async def upload_bulk(
 
 def _process_one_statement(file_path: str, bank: Optional[str]) -> Dict[str, Any]:
     """Process a single statement file in a worker thread."""
+    from backend.services.statement_processor import process_statement
+
     session = SessionLocal()
     try:
         return process_statement(pdf_path=file_path, bank=bank, db_session=session)
@@ -236,6 +240,8 @@ def reparse_statement(statement_id: str, db: Session = Depends(get_db)) -> Dict[
             "persistent file storage was enabled, or if the source file was moved/deleted."
         )
         raise HTTPException(status_code=400, detail=detail)
+
+    from backend.services.statement_processor import process_statement
 
     db.delete(stmt)
     db.commit()

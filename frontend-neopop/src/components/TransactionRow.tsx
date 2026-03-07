@@ -124,7 +124,7 @@ export function TransactionRow({ transaction, className }: TransactionRowProps) 
   }, [dropdownOpen]);
 
   const dynamicCat = catMap[transaction.category];
-  const catColor = dynamicCat?.color ?? CATEGORY_CONFIG[transaction.category]?.color ?? '#9CA3AF';
+  const catColor = dynamicCat?.color ?? CATEGORY_CONFIG[transaction.category]?.color ?? colorPalette.black[50];
   const catLabel = dynamicCat?.name ?? CATEGORY_CONFIG[transaction.category]?.label ?? transaction.category;
   const catIcon = dynamicCat?.icon ?? CATEGORY_CONFIG[transaction.category]?.icon ?? 'MoreHorizontal';
   const Icon = ICON_MAP[catIcon] ?? MoreHorizontal;
@@ -229,15 +229,21 @@ export function TransactionRow({ transaction, className }: TransactionRowProps) 
                           padding: '6px 10px',
                           cursor: disabled ? 'not-allowed' : 'pointer',
                           borderRadius: 4,
-                          fontSize: 12,
-                          color: disabled ? 'rgba(255,255,255,0.3)' : mainColors.white,
                           backgroundColor: isSelected ? 'rgba(255,135,68,0.15)' : 'transparent',
                           display: 'flex',
                           alignItems: 'center',
                           gap: 6,
                         }}
                       >
-                        {isSelected ? '✓' : ''} {tagName}
+                        <Typography
+                          as="span"
+                          fontType={FontType.BODY}
+                          fontSize={12}
+                          fontWeight={FontWeights.REGULAR}
+                          color={disabled ? 'rgba(255,255,255,0.3)' : mainColors.white}
+                        >
+                          {isSelected ? '✓ ' : ''}{tagName}
+                        </Typography>
                       </div>
                     );
                   })
