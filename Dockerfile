@@ -36,7 +36,9 @@ EXPOSE 8000
 
 VOLUME ["/data"]
 
-RUN adduser --disabled-password --gecos '' appuser && chown -R appuser /app /data
+RUN mkdir -p /data && \
+    adduser --disabled-password --gecos '' appuser && \
+    chown -R appuser /app /data
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
