@@ -1,7 +1,8 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
-import { Button, Typography, ElevatedCard, Tag, InputField, SearchBar } from '@cred/neopop-web/lib/components';
+import { Button, Typography, Tag, InputField, SearchBar } from '@cred/neopop-web/lib/components';
+import { SelectableElevatedCard as ElevatedCard } from '@/components/SelectableElevatedCard';
 import { mainColors, colorPalette } from '@cred/neopop-web/lib/primitives';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { useOffers } from '@/hooks/useApi';
@@ -10,6 +11,7 @@ import type { GetOffersParams } from '@/lib/api';
 import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import { toast } from '@/components/Toast';
 import { CloseButton } from '@/components/CloseButton';
+import { SelectDropdown, type SelectDropdownOption } from '@/components/SelectDropdown';
 import { Gift, Percent, RefreshCw, Plus, EyeOff, Trash2, ExternalLink } from 'lucide-react';
 import { BANK_CONFIG } from '@/lib/types';
 import type { Bank } from '@/lib/types';
@@ -119,12 +121,16 @@ const inputStyle = {
   boxSizing: 'border-box' as const,
 };
 
-const selectInlineStyle = {
-  ...inputStyle,
-  width: 'auto' as const,
+const filterDropdownWrapper: CSSProperties = {
   minWidth: 200,
   maxWidth: 280,
   flexShrink: 0,
+};
+
+const dropdownTriggerOnDark = {
+  border: 'rgba(255,255,255,0.12)',
+  text: mainColors.white,
+  chevron: 'rgba(255,255,255,0.5)',
 };
 
 const edgeAccent = {
@@ -213,6 +219,16 @@ export function Offers() {
   const unselectedCategories = useMemo(
     () => OFFER_CATEGORIES.filter((c) => !selectedCategories.includes(c.slug)),
     [selectedCategories],
+  );
+
+  const bankFilterOptions = useMemo<SelectDropdownOption[]>(
+    () => unselectedBankEntries.map(([slug, cfg]) => ({ value: slug, label: cfg.name })),
+    [unselectedBankEntries],
+  );
+
+  const categoryFilterOptions = useMemo<SelectDropdownOption[]>(
+    () => unselectedCategories.map(({ slug, label }) => ({ value: slug, label })),
+    [unselectedCategories],
   );
 
   const handleSync = async () => {
@@ -380,19 +396,16 @@ export function Offers() {
                   All banks are in the filter — remove one to add another.
                 </Typography>
               ) : (
-                <select
+                <SelectDropdown
+                  options={bankFilterOptions}
                   value={bankSelectValue}
-                  aria-label="Add bank filter"
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onBankDropdownChange(e.target.value)}
-                  style={selectInlineStyle}
-                >
-                  <option value="">Choose a bank…</option>
-                  {unselectedBankEntries.map(([slug, cfg]) => (
-                    <option key={slug} value={slug}>
-                      {cfg.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={onBankDropdownChange}
+                  placeholder="Select bank"
+                  ariaLabel="Add bank filter"
+                  wrapperStyle={filterDropdownWrapper}
+                  colorConfig={dropdownTriggerOnDark}
+                  menuEdgeColors={edgeAccent}
+                />
               )}
               <Button
                 variant={selectedBanks.length === 0 ? 'secondary' : 'primary'}
@@ -440,19 +453,16 @@ export function Offers() {
                   All categories are in the filter — remove one to add another.
                 </Typography>
               ) : (
-                <select
+                <SelectDropdown
+                  options={categoryFilterOptions}
                   value={categorySelectValue}
-                  aria-label="Add category filter"
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onCategoryDropdownChange(e.target.value)}
-                  style={selectInlineStyle}
-                >
-                  <option value="">Choose a category…</option>
-                  {unselectedCategories.map(({ slug, label }) => (
-                    <option key={slug} value={slug}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={onCategoryDropdownChange}
+                  placeholder="Select category"
+                  ariaLabel="Add category filter"
+                  wrapperStyle={filterDropdownWrapper}
+                  colorConfig={dropdownTriggerOnDark}
+                  menuEdgeColors={edgeAccent}
+                />
               )}
               <Button
                 variant={selectedCategories.length === 0 ? 'secondary' : 'primary'}
@@ -522,7 +532,13 @@ export function Offers() {
                 backgroundColor={colorPalette.black[500]}
                 edgeColors={edgeAccent}
                 fullWidth={true}
-                style={{ padding: 18, }}
+                style={{
+                  padding: 18,
+                  maxWidth: 'none',
+                  maxHeight: 'none',
+                  display: 'block',
+                  backgroundColor: 'transparent',
+                }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <Typography fontType={FontType.BODY} fontSize={15} fontWeight={FontWeights.BOLD} color={mainColors.white}>
@@ -673,7 +689,15 @@ export function Offers() {
               backgroundColor={colorPalette.black[90]}
               edgeColors={edgeAccent}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              style={{ width: '100%', maxWidth: 460, boxShadow: '0 24px 48px rgba(0,0,0,0.55)' }}
+              style={{
+                padding: 0,
+                width: '100%',
+                maxWidth: 460,
+                maxHeight: 'none',
+                display: 'block',
+                backgroundColor: 'transparent',
+                boxShadow: '0 24px 48px rgba(0,0,0,0.55)',
+              }}
             >
               <div
                 style={{
@@ -720,6 +744,22 @@ function CreateOfferModalContent({
   const [description, setDescription] = useState('');
   const [bank, setBank] = useState('');
   const [category, setCategory] = useState('');
+
+  const bankModalOptions = useMemo<SelectDropdownOption[]>(
+    () => [
+      { value: '', label: 'Any Bank' },
+      ...Object.entries(BANK_CONFIG).map(([key, cfg]) => ({ value: key, label: cfg.name })),
+    ],
+    [],
+  );
+
+  const categoryModalOptions = useMemo<SelectDropdownOption[]>(
+    () => [
+      { value: '', label: 'None' },
+      ...OFFER_CATEGORIES.map(({ slug, label }) => ({ value: slug, label })),
+    ],
+    [],
+  );
 
   return (
     <>
@@ -775,14 +815,16 @@ function CreateOfferModalContent({
           >
             Bank
           </Typography>
-          <select value={bank} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setBank(e.target.value)} style={inputStyle}>
-            <option value="">Any Bank</option>
-            {Object.entries(BANK_CONFIG).map(([key, cfg]) => (
-              <option key={key} value={key}>
-                {cfg.name}
-              </option>
-            ))}
-          </select>
+          <SelectDropdown
+            options={bankModalOptions}
+            value={bank}
+            onChange={setBank}
+            placeholder="Any Bank"
+            ariaLabel="Bank"
+            wrapperStyle={{ width: '100%', boxSizing: 'border-box' }}
+            colorConfig={dropdownTriggerOnDark}
+            menuEdgeColors={edgeAccent}
+          />
         </FormField>
 
         <FormField>
@@ -796,18 +838,16 @@ function CreateOfferModalContent({
           >
             Category
           </Typography>
-          <select
+          <SelectDropdown
+            options={categoryModalOptions}
             value={category}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCategory(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="">None</option>
-            {OFFER_CATEGORIES.map(({ slug, label }) => (
-              <option key={slug} value={slug}>
-                {label}
-              </option>
-            ))}
-          </select>
+            onChange={setCategory}
+            placeholder="None"
+            ariaLabel="Category"
+            wrapperStyle={{ width: '100%', boxSizing: 'border-box' }}
+            colorConfig={dropdownTriggerOnDark}
+            menuEdgeColors={edgeAccent}
+          />
         </FormField>
       </div>
 

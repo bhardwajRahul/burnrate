@@ -143,7 +143,8 @@ function statementPathPreview(
   if (segments.length === 0) return { display: raw, fullPath: raw };
   const fileBase = segments[segments.length - 1]!;
   if (segments.length === 1) {
-    return { display: `.../${fileBase}`, fullPath: raw };
+    // No parent path to truncate; tooltip matches the only string we have.
+    return { display: fileBase, fullPath: raw };
   }
   const folder = segments[segments.length - 2]!;
   return { display: `...${folder}/${fileBase}`, fullPath: raw };
@@ -219,7 +220,7 @@ function StatementPathHover({ display, fullPath }: { display: string; fullPath: 
             right: 0,
             marginTop: 8,
             zIndex: 400,
-            maxWidth: 'min(420px, 90vw)',
+            maxWidth: 'min(560px, 92vw)',
             padding: '10px 12px',
             background: colorPalette.popBlack[300],
             border: '1px solid rgba(255,255,255,0.15)',
@@ -370,9 +371,6 @@ export function Statements() {
       const result = await uploadStatementsBulk(files, undefined, undefined, 'CC');
       toast.dismiss(loadingId);
       notifyBulkUploadToasts(result, toast);
-      if (result.success > 0) {
-        await afterAnyUpload();
-      }
       return result;
     } catch (err) {
       toast.dismiss(loadingId);
@@ -414,9 +412,6 @@ export function Statements() {
       const result = await uploadStatementsBulk(files, undefined, undefined, 'BANK');
       toast.dismiss(loadingId);
       notifyBulkUploadToasts(result, toast);
-      if (result.success > 0) {
-        await afterAnyUpload();
-      }
       return result;
     } catch (err) {
       toast.dismiss(loadingId);
@@ -497,7 +492,8 @@ export function Statements() {
   };
 
   const filePathLine = (s: Statement) => {
-    const { display, fullPath } = statementPathPreview(s.filePath, s.fileName);
+    const pathForUi = s.displayPath ?? s.filePath;
+    const { display, fullPath } = statementPathPreview(pathForUi, s.fileName);
     return <StatementPathHover display={display} fullPath={fullPath} />;
   };
 
@@ -554,6 +550,11 @@ export function Statements() {
             <StatUpload
               onUpload={handleCCUpload}
               onBulkUpload={handleCCBulkUpload}
+              onBulkUploadSummaryDismissed={(result) => {
+                if (result.success > 0) {
+                  void afterAnyUpload();
+                }
+              }}
               acceptTypes={{ 'application/pdf': ['.pdf'] }}
               idleText="Drop statement PDFs here, or click to browse"
               subtitleText="PDF — same import as Customize"
@@ -566,6 +567,11 @@ export function Statements() {
             <StatUpload
               onUpload={handleBankUpload}
               onBulkUpload={handleBankBulkUpload}
+              onBulkUploadSummaryDismissed={(result) => {
+                if (result.success > 0) {
+                  void afterAnyUpload();
+                }
+              }}
               acceptTypes={{ 'text/csv': ['.csv'] }}
               idleText="Drop bank statement CSVs here, or click to browse"
               subtitleText="CSV files only — drop multiple for bulk import"

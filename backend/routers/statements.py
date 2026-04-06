@@ -1,8 +1,10 @@
 """Statement API endpoints."""
 
 import concurrent.futures
+import json
 import logging
 import os
+import re
 from datetime import date
 from enum import Enum
 from pathlib import Path, PurePosixPath
@@ -67,6 +69,63 @@ class BulkUploadResponse(BaseModel):
     outcomes: List[BulkOutcomeItem] = Field(default_factory=list)
 
 
+ORIGINAL_PATH_MAX_LEN = 2048
+_UUID_FILENAME_PREFIX = re.compile(r"^[0-9a-fA-F]{32}_")
+
+
+def _normalize_original_path(raw: Optional[str]) -> Optional[str]:
+    if not raw or not isinstance(raw, str):
+        return None
+    s = raw.strip()
+    if not s:
+        return None
+    return s[:ORIGINAL_PATH_MAX_LEN]
+
+
+def _parse_original_paths_for_files(raw: Optional[str], num_files: int) -> List[Optional[str]]:
+    if not raw or not str(raw).strip() or num_files <= 0:
+        return [None] * num_files
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return [None] * num_files
+    if not isinstance(data, list) or len(data) != num_files:
+        return [None] * num_files
+    out: List[Optional[str]] = []
+    for item in data:
+        if item is None:
+            out.append(None)
+        elif isinstance(item, str):
+            out.append(_normalize_original_path(item))
+        else:
+            return [None] * num_files
+    return out
+
+
+def statement_display_path(
+    file_path: Optional[str],
+    original_upload_path: Optional[str],
+) -> Optional[str]:
+    """Path string suitable for UI: client path for manual uploads, else watch path or basename."""
+    ou = (original_upload_path or "").strip()
+    if ou:
+        return ou
+    if not file_path:
+        return None
+    try:
+        p = Path(file_path).resolve()
+        uploads = UPLOADS_DIR.resolve()
+        if p.parent == uploads:
+            name = p.name
+            m = _UUID_FILENAME_PREFIX.match(name)
+            if m:
+                return name[m.end() :]
+            return name
+    except OSError:
+        pass
+    return file_path
+
+
 def _get_file_ext(filename: str) -> str:
     return os.path.splitext(filename.lower())[1]
 
@@ -77,6 +136,7 @@ def upload_statement(
     bank: Optional[str] = Form(None),
     password: Optional[str] = Form(None),
     source: Optional[str] = Form("CC"),
+    original_path: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """Accept a single PDF or CSV file upload with optional bank, password, and source params."""
@@ -108,6 +168,7 @@ def upload_statement(
         db_session=db,
         manual_password=password,
         source=stmt_source,
+        original_upload_path=_normalize_original_path(original_path),
     )
     return result
 
@@ -118,6 +179,7 @@ async def upload_bulk(
     bank: Optional[str] = Form(None),
     password: Optional[str] = Form(None),
     source: Optional[str] = Form("CC"),
+    original_paths: Optional[str] = Form(None),
 ) -> BulkUploadResponse:
     """Accept multiple PDF/CSV files. Files are queued and processed with
     max 10 concurrently via the shared processing pool."""
@@ -125,9 +187,10 @@ async def upload_bulk(
 
     input_total = len(files)
     rejected: List[BulkRejectedItem] = []
-    jobs: List[tuple[str, str]] = []
+    jobs: List[tuple[str, str, Optional[str]]] = []
+    path_by_index = _parse_original_paths_for_files(original_paths, input_total)
 
-    for f in files:
+    for idx, f in enumerate(files):
         if not f.filename:
             rejected.append(
                 BulkRejectedItem(file_name="unknown", reason=BulkRejectReason.missing_filename)
@@ -151,7 +214,7 @@ async def upload_bulk(
             continue
         with open(persistent_path, "wb") as out:
             out.write(content)
-        jobs.append((persistent_path, display_name))
+        jobs.append((persistent_path, display_name, path_by_index[idx]))
 
     if not jobs:
         raise HTTPException(status_code=400, detail="No valid PDF or CSV files provided")
@@ -162,12 +225,13 @@ async def upload_bulk(
 
     bank_lower = bank.lower() if bank else None
     future_to_name: Dict[concurrent.futures.Future, str] = {}
-    for path, display_name in jobs:
+    for path, display_name, orig_upload in jobs:
         fut = processing_queue.submit(
             pdf_path=path,
             bank=bank_lower,
             manual_password=password,
             source=stmt_source,
+            original_upload_path=orig_upload,
         )
         future_to_name[fut] = display_name
 
@@ -320,6 +384,7 @@ def list_statements(
     out: List[Dict[str, Any]] = []
     for s in statements:
         fp = s.file_path
+        orig = getattr(s, "original_upload_path", None)
         out.append(
             {
                 "id": s.id,
@@ -337,6 +402,7 @@ def list_statements(
                 "imported_at": s.imported_at.isoformat() if s.imported_at else None,
                 "file_path": fp,
                 "file_name": os.path.basename(fp) if fp else None,
+                "display_path": statement_display_path(fp, orig),
                 "status_message": getattr(s, "status_message", None),
             }
         )
@@ -410,6 +476,7 @@ def reparse_with_password(
     from backend.services.statement_processor import process_statement
 
     stmt_source = getattr(stmt, "source", None) or "CC"
+    preserved_orig = getattr(stmt, "original_upload_path", None)
     db.delete(stmt)
     db.commit()
 
@@ -418,6 +485,7 @@ def reparse_with_password(
         db_session=db,
         manual_password=payload.password,
         source=stmt_source,
+        original_upload_path=preserved_orig,
     )
     return result
 
@@ -442,6 +510,7 @@ def reparse_statement(statement_id: str, db: Session = Depends(get_db)) -> Dict[
 
     stmt_source = getattr(stmt, "source", None) or "CC"
     stmt_bank = stmt.bank
+    preserved_orig = getattr(stmt, "original_upload_path", None)
     db.delete(stmt)
     db.commit()
 
@@ -450,5 +519,6 @@ def reparse_statement(statement_id: str, db: Session = Depends(get_db)) -> Dict[
         bank=stmt_bank,
         db_session=db,
         source=stmt_source,
+        original_upload_path=preserved_orig,
     )
     return result

@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
-import { Button, Column, ElevatedCard, Row, Typography } from '@cred/neopop-web/lib/components';
+import { Column, Row, Typography } from '@cred/neopop-web/lib/components';
+import { SelectableElevatedCard as ElevatedCard } from '@/components/SelectableElevatedCard';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import type { BulkUploadResult } from '@/lib/api';
+import { CloseButton } from '@/components/CloseButton';
 import {
   MAX_BULK_DETAIL_ROWS,
   buildBulkUploadDetailRows,
@@ -19,14 +20,7 @@ export function BulkUploadSummaryCard({ result, onDismiss }: BulkUploadSummaryCa
   const hidden = rows.length - visible.length;
 
   return (
-    <ElevatedCard
-      backgroundColor="#000000"
-      edgeColors={{
-        bottom: colorPalette.rss[500],
-        right: colorPalette.rss[800],
-      }}
-      style={{ padding: 16, width: '100%', maxWidth: 520, maxHeight: 'min(72vh, 640px)', display: 'flex', flexDirection: 'column' }}
-    >
+    <ElevatedCard>
       <Column style={{ gap: 12, minHeight: 0 }}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexShrink: 0 }}>
           <Column style={{ gap: 6, flex: 1, minWidth: 0 }}>
@@ -38,9 +32,7 @@ export function BulkUploadSummaryCard({ result, onDismiss }: BulkUploadSummaryCa
               {rows.length > 0 ? ` · ${rows.length} need attention` : ''}
             </Typography>
           </Column>
-          <Button variant="secondary" kind="elevated" colorMode="dark" size="small" onClick={onDismiss}>
-            Dismiss
-          </Button>
+          <CloseButton onClick={onDismiss} />
         </Row>
 
         {visible.length > 0 && (
@@ -107,15 +99,6 @@ export interface BulkUploadSummaryModalProps {
 }
 
 export function BulkUploadSummaryModal({ open, result, onDismiss }: BulkUploadSummaryModalProps) {
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onDismiss();
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [open, onDismiss]);
-
   if (!open || !result) return null;
 
   return (
@@ -145,6 +128,7 @@ export function BulkUploadSummaryModal({ open, result, onDismiss }: BulkUploadSu
         role="dialog"
         aria-modal="true"
         aria-label="Upload summary"
+        onClick={(e) => e.stopPropagation()}
       >
         <BulkUploadSummaryCard result={result} onDismiss={onDismiss} />
       </div>

@@ -220,6 +220,16 @@ export interface UploadStatementResult {
   period?: { start: string | null; end: string | null };
 }
 
+/** Best-effort client path for manual uploads (Tauri native path, relative path, or filename). */
+export function clientOriginalPathForUpload(file: File): string {
+  const f = file as File & { path?: string; webkitRelativePath?: string };
+  const native = typeof f.path === 'string' ? f.path.trim() : '';
+  if (native) return native;
+  const rel = f.webkitRelativePath?.trim();
+  if (rel) return rel;
+  return file.name;
+}
+
 export async function uploadStatement(
   file: File,
   bank?: Bank,
@@ -231,6 +241,7 @@ export async function uploadStatement(
   if (bank) formData.append('bank', bank);
   if (password) formData.append('password', password);
   if (source) formData.append('source', source);
+  formData.append('original_path', clientOriginalPathForUpload(file));
   const { data } = await api.post<UploadStatementResult>(
     '/statements/upload',
     formData,
@@ -304,6 +315,10 @@ export async function uploadStatementsBulk(
   if (bank) formData.append('bank', bank);
   if (password) formData.append('password', password);
   if (source) formData.append('source', source);
+  formData.append(
+    'original_paths',
+    JSON.stringify(files.map((f) => clientOriginalPathForUpload(f)))
+  );
   const { data } = await api.post<Record<string, unknown>>(
     '/statements/upload-bulk',
     formData,
@@ -329,6 +344,7 @@ interface StatementRaw {
   imported_at: string | null;
   file_path?: string | null;
   file_name?: string | null;
+  display_path?: string | null;
   status_message?: string | null;
 }
 
@@ -365,6 +381,7 @@ export async function getStatements(params?: Source | GetStatementsParams): Prom
     importedAt: s.imported_at ?? '',
     filePath: s.file_path ?? null,
     fileName: s.file_name ?? null,
+    displayPath: s.display_path ?? null,
     statusMessage: s.status_message ?? null,
   }));
 }

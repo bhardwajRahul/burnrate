@@ -31,11 +31,27 @@ function readEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry
   });
 }
 
+function attachEntryRelativePath(file: File, entry: FileSystemEntry): void {
+  const rel = entry.fullPath.replace(/^\/+/, '').trim();
+  if (!rel) return;
+  const f = file as File & { webkitRelativePath?: string };
+  if (f.webkitRelativePath) return;
+  try {
+    Object.defineProperty(file, 'webkitRelativePath', {
+      value: rel,
+      configurable: true,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 async function traverseFileTree(entry: FileSystemEntry, acc: File[]): Promise<void> {
   if (entry.isFile) {
     const file = await new Promise<File>((resolve, reject) => {
       (entry as FileSystemFileEntry).file(resolve, reject);
     });
+    attachEntryRelativePath(file, entry);
     acc.push(file);
     return;
   }

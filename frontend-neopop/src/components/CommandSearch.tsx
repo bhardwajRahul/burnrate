@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { ElevatedCard, InputField } from '@cred/neopop-web/lib/components';
+import { InputField } from '@cred/neopop-web/lib/components';
+import {
+  SelectableElevatedCard as ElevatedCard,
+  TRANSPARENT_ELEVATED_CARD_EDGES,
+} from '@/components/SelectableElevatedCard';
 import { Typography } from '@cred/neopop-web/lib/components';
 import { colorPalette } from '@cred/neopop-web/lib/primitives';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
@@ -73,10 +77,15 @@ export function CommandSearch({ open, onClose, onSearch, className }: CommandSea
 
       <ElevatedCard
         backgroundColor={colorPalette.black[90]}
+        edgeColors={TRANSPARENT_ELEVATED_CARD_EDGES}
         style={{
+          padding: 0,
           position: 'relative',
           width: '100%',
           maxWidth: 480,
+          maxHeight: 'none',
+          display: 'block',
+          backgroundColor: 'transparent',
           overflow: 'hidden',
           boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react';
 import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import { Button, InputField } from '@cred/neopop-web/lib/components';
 import { Typography } from '@cred/neopop-web/lib/components';
@@ -6,7 +6,9 @@ import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import type { Bank } from '@/lib/types';
 import { BANK_CONFIG } from '@/lib/types';
-import { Plus, Trash2, FolderOpen, Shield } from 'lucide-react';
+import { Plus, FolderOpen, Shield } from 'lucide-react';
+import { TrashIconButton } from '@/components/TrashIconButton';
+import { SelectDropdown, type SelectDropdownOption } from '@/components/SelectDropdown';
 import { api } from '@/lib/api';
 
 export interface CardEntry {
@@ -47,6 +49,29 @@ interface SetupFormProps {
 const BANKS: { id: Bank; name: string; color: string }[] = (
   Object.entries(BANK_CONFIG) as [Bank, (typeof BANK_CONFIG)[Bank]][]
 ).map(([id, config]) => ({ id, name: config.name, color: config.color }));
+
+const BANK_DROPDOWN_OPTIONS: SelectDropdownOption[] = BANKS.map((b) => ({
+  value: b.id,
+  label: b.name,
+}));
+
+const DISPLAY_CURRENCY_OPTIONS: SelectDropdownOption[] = [
+  { value: '', label: 'Auto (from transaction currency)' },
+  { value: 'INR', label: 'INR' },
+  { value: 'USD', label: 'USD' },
+];
+
+const setupDropdownTrigger = {
+  border: 'rgba(255,255,255,0.2)',
+  text: '#ffffff',
+  chevron: 'rgba(255,255,255,0.5)',
+};
+
+const bankRowDropdownStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  boxSizing: 'border-box',
+};
 
 export function SetupForm({ onSubmit, className, initialData, isUpdate = false }: SetupFormProps) {
   const [name, setName] = useState('');
@@ -275,29 +300,15 @@ export function SetupForm({ onSubmit, className, initialData, isUpdate = false }
                     key={card.id ?? `new-${index}`}
                     style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
                   >
-                    <select
+                    <SelectDropdown
+                      options={BANK_DROPDOWN_OPTIONS}
                       value={card.bank}
-                      onChange={(e) => updateCard(index, 'bank', e.target.value)}
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        boxSizing: 'border-box',
-                        backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                        color: '#ffffff',
-                        padding: '10px 12px',
-                        borderRadius: 8,
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        outline: 'none',
-                        fontSize: 14,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {BANKS.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(next) => updateCard(index, 'bank', next)}
+                      ariaLabel={`Card ${index + 1} issuing bank`}
+                      wrapperStyle={bankRowDropdownStyle}
+                      colorConfig={setupDropdownTrigger}
+                      menuBackgroundColor="rgba(0,0,0,0.92)"
+                    />
                     <div style={{ position: 'relative' }}>
                       <Typography
                         as="span"
@@ -334,22 +345,11 @@ export function SetupForm({ onSubmit, className, initialData, isUpdate = false }
                       />
                     </div>
                     {cards.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="primary"
-                        kind="elevated"
-                        size="small"
-                        colorMode="dark"
+                      <TrashIconButton
+                        aria-label="Remove card"
+                        iconSize={14}
                         onClick={() => removeCard(index)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'rgba(255,255,255,0.5)',
-                          minWidth: 32,
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
+                      />
                     )}
                   </div>
                 ))}
@@ -413,27 +413,16 @@ export function SetupForm({ onSubmit, className, initialData, isUpdate = false }
               <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.6)" style={{ marginBottom: 6 }}>
                 Display preference (optional)
               </Typography>
-              <select
+              <SelectDropdown
+                options={DISPLAY_CURRENCY_OPTIONS}
                 value={displayCurrency}
-                onChange={(e) => setDisplayCurrency(e.target.value)}
-                style={{
-                  width: '100%',
-                  maxWidth: 280,
-                  boxSizing: 'border-box',
-                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                  color: '#ffffff',
-                  padding: '10px 12px',
-                  borderRadius: 8,
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  outline: 'none',
-                  fontSize: 14,
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="">Auto (from transaction currency)</option>
-                <option value="INR">INR</option>
-                <option value="USD">USD</option>
-              </select>
+                onChange={setDisplayCurrency}
+                placeholder="Auto (from transaction currency)"
+                ariaLabel="Display currency preference"
+                wrapperStyle={{ width: '100%', maxWidth: 280, boxSizing: 'border-box' }}
+                colorConfig={setupDropdownTrigger}
+                menuBackgroundColor="rgba(0,0,0,0.92)"
+              />
               <Typography fontType={FontType.BODY} fontSize={11} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.45)" style={{ marginTop: 4 }}>
                 Does not convert amounts; used for empty states and ordering only.
               </Typography>

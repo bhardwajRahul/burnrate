@@ -1,5 +1,9 @@
 import { useEffect } from 'react';
-import { ElevatedCard, Button, Typography } from '@cred/neopop-web/lib/components';
+import { Button, Typography } from '@cred/neopop-web/lib/components';
+import {
+    SelectableElevatedCard as ElevatedCard,
+    TRANSPARENT_ELEVATED_CARD_EDGES,
+} from '@/components/SelectableElevatedCard';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { CloseButton } from '@/components/CloseButton';
@@ -65,10 +69,15 @@ export function ConfirmModal({
             />
             <ElevatedCard
                 backgroundColor={colorPalette.black[90]}
+                edgeColors={TRANSPARENT_ELEVATED_CARD_EDGES}
                 style={{
+                    padding: 0,
                     position: 'relative',
                     width: '100%',
                     maxWidth: 400,
+                    maxHeight: 'none',
+                    display: 'block',
+                    backgroundColor: 'transparent',
                     boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
                 }}
             >

@@ -77,6 +77,7 @@ def _run_migrations(engine_ref) -> None:
         ("settings", "display_currency", "VARCHAR(3)"),
         ("cards", "template_id", "VARCHAR(100)"),
         ("statements", "status_message", "TEXT"),
+        ("statements", "original_upload_path", "VARCHAR(2048)"),
     ]
 
     with engine_ref.connect() as conn:

@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ElevatedCard, InputField } from '@cred/neopop-web/lib/components';
+import { InputField } from '@cred/neopop-web/lib/components';
+import {
+  SelectableElevatedCard as ElevatedCard,
+  TRANSPARENT_ELEVATED_CARD_EDGES,
+} from '@/components/SelectableElevatedCard';
 import { Typography } from '@cred/neopop-web/lib/components';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
@@ -228,16 +232,28 @@ export function FilterModal({
           onClick={onClose}
         />
         <ElevatedCard
+          fullWidth
           backgroundColor={colorPalette.black[90]}
+          edgeColors={TRANSPARENT_ELEVATED_CARD_EDGES}
           style={{
+            padding: 0,
             position: 'relative',
             width: '100%',
             maxWidth: 520,
-            maxHeight: '80vh',
-            overflow: 'auto',
+            maxHeight: 'none',
+            display: 'block',
+            backgroundColor: 'transparent',
+            overflow: 'hidden',
             boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
           }}
         >
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '80vh',
+            }}
+          >
           <div
             style={{
               display: 'flex',
@@ -245,6 +261,7 @@ export function FilterModal({
               justifyContent: 'space-between',
               padding: '16px 20px',
               borderBottom: '1px solid rgba(255,255,255,0.1)',
+              flexShrink: 0,
             }}
           >
             <Typography fontType={FontType.BODY} fontSize={18} fontWeight={FontWeights.BOLD} color={mainColors.white}>
@@ -252,7 +269,7 @@ export function FilterModal({
             </Typography>
             <CloseButton onClick={onClose} variant="modal" />
           </div>
-          <div style={{ padding: 20 }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}>
             <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.5)" style={{ marginBottom: 10 }}>
               Bank name
             </Typography>
@@ -334,6 +351,7 @@ export function FilterModal({
               display: 'flex',
               gap: 12,
               justifyContent: 'flex-end',
+              flexShrink: 0,
             }}
           >
             <Button variant="secondary" kind="elevated" size="small" colorMode="dark" onClick={handleClearAll}>
@@ -342,6 +360,7 @@ export function FilterModal({
             <Button variant="primary" kind="elevated" size="small" colorMode="dark" onClick={handleApply}>
               Apply Filters
             </Button>
+          </div>
           </div>
         </ElevatedCard>
       </div>
@@ -371,16 +390,28 @@ export function FilterModal({
       />
 
       <ElevatedCard
+        fullWidth
         backgroundColor={colorPalette.black[90]}
+        edgeColors={TRANSPARENT_ELEVATED_CARD_EDGES}
         style={{
+          padding: 0,
           position: 'relative',
           width: '100%',
           maxWidth: 520,
-          maxHeight: '80vh',
-          overflow: 'auto',
+          maxHeight: 'none',
+          display: 'block',
+          backgroundColor: 'transparent',
+          overflow: 'hidden',
           boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
       >
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '80vh',
+          }}
+        >
         <div
           style={{
             display: 'flex',
@@ -388,6 +419,7 @@ export function FilterModal({
             justifyContent: 'space-between',
             padding: '16px 20px',
             borderBottom: '1px solid rgba(255,255,255,0.1)',
+            flexShrink: 0,
           }}
         >
           <Typography
@@ -401,7 +433,7 @@ export function FilterModal({
           <CloseButton onClick={onClose} variant="modal" />
         </div>
 
-        <div style={{ padding: 20 }}>
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 20 }}>
           <Typography
             fontType={FontType.BODY}
             fontSize={12}
@@ -636,6 +668,7 @@ export function FilterModal({
             display: 'flex',
             gap: 12,
             justifyContent: 'flex-end',
+            flexShrink: 0,
           }}
         >
           <Button
@@ -656,6 +689,7 @@ export function FilterModal({
           >
             Apply Filters
           </Button>
+        </div>
         </div>
       </ElevatedCard>
     </div>

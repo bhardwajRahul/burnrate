@@ -25,6 +25,7 @@ def _process_one(
     manual_password: Optional[str],
     db_session_factory: Optional[Callable],
     source: str = "CC",
+    original_upload_path: Optional[str] = None,
 ) -> Dict:
     """Run process_statement in a worker thread with its own DB session.
 
@@ -42,6 +43,7 @@ def _process_one(
                 db_session=session,
                 manual_password=manual_password,
                 source=source,
+                original_upload_path=original_upload_path,
             )
             if (
                 result.get("status") == "error"
@@ -66,11 +68,18 @@ def submit(
     manual_password: Optional[str] = None,
     db_session_factory: Optional[Callable] = None,
     source: str = "CC",
+    original_upload_path: Optional[str] = None,
 ) -> Future:
     """Submit a file for processing. Returns a Future so callers can
     optionally wait for and inspect the result."""
     return _executor.submit(
-        _process_one, pdf_path, bank, manual_password, db_session_factory, source,
+        _process_one,
+        pdf_path,
+        bank,
+        manual_password,
+        db_session_factory,
+        source,
+        original_upload_path,
     )
 
 

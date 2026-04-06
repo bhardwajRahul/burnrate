@@ -106,6 +106,7 @@ def _create_password_needed_statement(
     file_path: str,
     bank: Optional[str],
     source: str,
+    original_upload_path: Optional[str] = None,
 ) -> None:
     """Persist a minimal Statement record so that password-protected files
     appear in the Reparse/Remove UI for the user to supply a password."""
@@ -116,6 +117,7 @@ def _create_password_needed_statement(
         period_end=None,
         file_hash=file_hash,
         file_path=file_path,
+        original_upload_path=original_upload_path,
         transaction_count=0,
         total_spend=0.0,
         source=source,
@@ -132,6 +134,7 @@ def process_statement(
     db_session_factory: Optional[Callable] = None,
     manual_password: Optional[str] = None,
     source: str = "CC",
+    original_upload_path: Optional[str] = None,
 ) -> Dict:
     """
     Process a statement file (PDF or CSV): unlock, parse, categorize, persist.
@@ -182,6 +185,7 @@ def process_statement(
                 bank=bank,
                 source=source,
                 db_session=db_session,
+                original_upload_path=original_upload_path,
             )
 
         # ---------- PDF processing (existing logic) ----------
@@ -206,7 +210,7 @@ def process_statement(
                         bank = detected
             else:
                 _create_password_needed_statement(
-                    db_session, file_hash, pdf_path, bank, source,
+                    db_session, file_hash, pdf_path, bank, source, original_upload_path,
                 )
                 return {
                     "status": "password_needed",
@@ -228,7 +232,7 @@ def process_statement(
                     working_path = unlocked
                 else:
                     _create_password_needed_statement(
-                        db_session, file_hash, pdf_path, bank, source,
+                        db_session, file_hash, pdf_path, bank, source, original_upload_path,
                     )
                     return {
                         "status": "password_needed",
@@ -256,7 +260,7 @@ def process_statement(
 
                 if not unlocked:
                     _create_password_needed_statement(
-                        db_session, file_hash, pdf_path, bank, source,
+                        db_session, file_hash, pdf_path, bank, source, original_upload_path,
                     )
                     return {
                         "status": "password_needed",
@@ -270,7 +274,7 @@ def process_statement(
                     bank = detected
         elif encrypted:
             _create_password_needed_statement(
-                db_session, file_hash, pdf_path, bank, source,
+                db_session, file_hash, pdf_path, bank, source, original_upload_path,
             )
             return {
                 "status": "password_needed",
@@ -377,6 +381,7 @@ def process_statement(
                 period_end=None,
                 file_hash=file_hash,
                 file_path=pdf_path,
+                original_upload_path=original_upload_path,
                 transaction_count=0,
                 total_spend=0.0,
                 total_amount_due=getattr(parsed, "total_amount_due", None),
@@ -414,6 +419,7 @@ def process_statement(
             period_end=parsed.period_end,
             file_hash=file_hash,
             file_path=pdf_path,
+            original_upload_path=original_upload_path,
             transaction_count=len(parsed.transactions),
             total_spend=total_spend,
             total_amount_due=getattr(parsed, "total_amount_due", None),
@@ -482,6 +488,7 @@ def _process_csv_statement(
     bank: Optional[str],
     source: str,
     db_session: Session,
+    original_upload_path: Optional[str] = None,
 ) -> Dict:
     """Process a CSV bank statement: detect bank, parse, categorize, persist."""
     if not bank:
@@ -525,6 +532,7 @@ def _process_csv_statement(
             period_end=None,
             file_hash=file_hash,
             file_path=csv_path,
+            original_upload_path=original_upload_path,
             transaction_count=0,
             total_spend=0.0,
             source=source,
@@ -561,6 +569,7 @@ def _process_csv_statement(
         period_end=parsed.period_end,
         file_hash=file_hash,
         file_path=csv_path,
+        original_upload_path=original_upload_path,
         transaction_count=len(parsed.transactions),
         total_spend=total_spend,
         source=source,

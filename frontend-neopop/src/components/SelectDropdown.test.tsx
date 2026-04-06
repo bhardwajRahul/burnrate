@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectDropdown } from './SelectDropdown';
@@ -6,6 +6,13 @@ import { SelectDropdown } from './SelectDropdown';
 const OPTIONS = [
   { value: 'a', label: 'Alpha' },
   { value: 'b', label: 'Beta' },
+];
+
+const MULTI_OPTIONS = [
+  { value: 'x', label: 'One' },
+  { value: 'y', label: 'Two' },
+  { value: 'z', label: 'Three' },
+  { value: 'w', label: 'Four' },
 ];
 
 describe('SelectDropdown', () => {
@@ -21,13 +28,139 @@ describe('SelectDropdown', () => {
   it('selects an option and calls onChange', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<SelectDropdown options={OPTIONS} placeholder="Pick" onChange={onChange} />);
+    const { container } = render(<SelectDropdown options={OPTIONS} placeholder="Pick" onChange={onChange} />);
 
-    await user.click(screen.getByText('Pick'));
+    await user.click(within(container).getByText('Pick'));
     await user.click(screen.getByRole('option', { name: 'Beta' }));
 
     await waitFor(() => {
       expect(onChange).toHaveBeenCalledWith('b');
+    });
+  });
+
+  it('shows placeholder when value is missing', () => {
+    render(<SelectDropdown options={OPTIONS} placeholder="Choose" value="" onChange={vi.fn()} />);
+    expect(screen.getByText('Choose')).toBeInTheDocument();
+  });
+
+  it('Escape closes the menu', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<SelectDropdown options={OPTIONS} placeholder="Pick" />);
+    await user.click(within(container).getByText('Pick'));
+    expect(screen.getByRole('option', { name: 'Alpha' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: 'Alpha' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('multi: toggles selection and keeps menu open by default', async () => {
+    const user = userEvent.setup();
+    const onSelectedValuesChange = vi.fn();
+    const { container } = render(
+      <SelectDropdown
+        selectionMode="multi"
+        options={MULTI_OPTIONS}
+        selectedValues={[]}
+        onSelectedValuesChange={onSelectedValuesChange}
+        placeholder="Tags"
+      />,
+    );
+    await user.click(within(container).getByText('Tags'));
+    await user.click(screen.getByRole('option', { name: /One/ }));
+    expect(onSelectedValuesChange).toHaveBeenCalledWith(['x']);
+    expect(screen.getByRole('option', { name: /One/ })).toBeInTheDocument();
+  });
+
+  it('multi: toggles off', async () => {
+    const user = userEvent.setup();
+    const onSelectedValuesChange = vi.fn();
+    const { container } = render(
+      <SelectDropdown
+        selectionMode="multi"
+        options={MULTI_OPTIONS}
+        selectedValues={['x']}
+        onSelectedValuesChange={onSelectedValuesChange}
+        placeholder="Tags"
+      />,
+    );
+    await user.click(within(container).getByText('Tags'));
+    await user.click(screen.getByRole('option', { name: /One/ }));
+    expect(onSelectedValuesChange).toHaveBeenCalledWith([]);
+  });
+
+  it('multi: maxSelected disables fourth unselected option', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <SelectDropdown
+        selectionMode="multi"
+        options={MULTI_OPTIONS}
+        selectedValues={['x', 'y', 'z']}
+        onSelectedValuesChange={vi.fn()}
+        maxSelected={3}
+        placeholder="Tags"
+      />,
+    );
+    await user.click(within(container).getByText('Tags'));
+    const four = screen.getByRole('option', { name: /Four/ });
+    expect(four).toBeDisabled();
+  });
+
+  it('shows emptyMenuContent when options empty', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <SelectDropdown
+        options={[]}
+        placeholder="Open"
+        emptyMenuContent={<span>No items</span>}
+      />,
+    );
+    await user.click(within(container).getByText('Open'));
+    expect(screen.getByText('No items')).toBeInTheDocument();
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
+  });
+
+  it('staticTriggerLabel ignores selection for trigger text', () => {
+    render(
+      <SelectDropdown
+        selectionMode="multi"
+        options={MULTI_OPTIONS}
+        selectedValues={['x']}
+        staticTriggerLabel="Tag ▾"
+        placeholder="ignored on trigger"
+      />,
+    );
+    expect(screen.getByText('Tag ▾')).toBeInTheDocument();
+  });
+
+  it('portal: menu mounts under document.body', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <SelectDropdown
+        options={OPTIONS}
+        placeholder="Pick"
+        menuMount="portal"
+      />,
+    );
+    await user.click(within(container).getByText('Pick'));
+    const listboxes = document.body.querySelectorAll('[role="listbox"]');
+    expect(listboxes.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('option', { name: 'Alpha' })).toBeInTheDocument();
+  });
+
+  it('mousedown outside closes portal menu', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <div>
+        <SelectDropdown options={OPTIONS} placeholder="Pick" menuMount="portal" />
+        <button type="button">outside</button>
+      </div>,
+    );
+    await user.click(within(container).getByText('Pick'));
+    expect(screen.getByRole('option', { name: 'Alpha' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'outside' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('option', { name: 'Alpha' })).not.toBeInTheDocument();
     });
   });
 });

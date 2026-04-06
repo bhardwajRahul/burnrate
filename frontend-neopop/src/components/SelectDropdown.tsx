@@ -1,12 +1,21 @@
+import { Column, Dropdown, Typography } from '@cred/neopop-web/lib/components';
 import {
-  Column,
-  Dropdown,
-  ElevatedCard,
-  Typography,
-} from '@cred/neopop-web/lib/components';
+  SelectableElevatedCard as ElevatedCard,
+  TRANSPARENT_ELEVATED_CARD_EDGES,
+} from '@/components/SelectableElevatedCard';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
+import { createPortal } from 'react-dom';
 import styled from 'styled-components';
 
 /** Single selectable entry shown in the menu panel. */
@@ -25,15 +34,33 @@ export type SelectDropdownTriggerColors = {
   chevron?: string;
 };
 
+export type SelectDropdownSelectionMode = 'single' | 'multi';
+
 export type SelectDropdownProps = {
   /** Choices shown when the menu is open. */
   options: SelectDropdownOption[];
-  /** Currently selected value, if any. */
+  /** `single`: one value; `multi`: toggle set. Default `single`. */
+  selectionMode?: SelectDropdownSelectionMode;
+  /** Currently selected value (`selectionMode === 'single'`). */
   value?: string;
-  /** Called when the user picks an option. */
+  /** Called when the user picks an option (`single`). */
   onChange?: (next: string) => void;
-  /** Trigger label when `value` is empty or not in `options`. */
+  /** Selected values (`selectionMode === 'multi'`). */
+  selectedValues?: string[];
+  /** Called when toggling options (`multi`). */
+  onSelectedValuesChange?: (next: string[]) => void;
+  /** Trigger label when `value` is empty or not in `options` (`single`). Also used as multi fallback when no `staticTriggerLabel`. */
   placeholder?: string;
+  /** When set, trigger always shows this text (e.g. tag picker). */
+  staticTriggerLabel?: string;
+  /** When menu is open and `options` is empty, show this inside the panel. */
+  emptyMenuContent?: ReactNode;
+  /** Default: `true` for single, `false` for multi. */
+  closeOnSelect?: boolean;
+  /** `multi`: max selections; unselected options disabled at cap. */
+  maxSelected?: number;
+  /** `inline` under trigger; `portal` to `document.body` with fixed position. */
+  menuMount?: 'inline' | 'portal';
   /** Disables opening the menu and dims the control. */
   disabled?: boolean;
   /** Passed to NeoPOP `Dropdown`. */
@@ -54,10 +81,14 @@ export type SelectDropdownProps = {
   menuBackgroundColor?: string;
   /** Optional elevated edge colors for the menu card. */
   menuEdgeColors?: { bottom: string; right: string };
-  /** Menu panel minimum height (scroll when content exceeds). */
+  /** Menu panel minimum width (scroll when content exceeds). */
   menuMinWidth?: number | string;
   /** Menu panel maximum height with vertical scroll. */
   menuMaxHeight?: number | string;
+  /** Accessibility label for the trigger control. */
+  ariaLabel?: string;
+  /** Fires on root `mousedown` (e.g. `stopPropagation` for nested clickable rows). */
+  onRootMouseDown?: (e: React.MouseEvent) => void;
 };
 
 const Root = styled.div<{ $disabled?: boolean }>`
@@ -76,23 +107,29 @@ const MenuPosition = styled.div<{ $offset: number }>`
   z-index: 20;
 `;
 
-const OptionButton = styled.button`
+const OptionButton = styled.button<{ $disabledOption?: boolean }>`
   display: block;
   width: 100%;
   margin: 0;
   padding: 10px 14px;
   border: none;
   text-align: left;
-  cursor: pointer;
+  cursor: ${(p) => (p.$disabledOption ? 'not-allowed' : 'pointer')};
   background: transparent;
+  opacity: ${(p) => (p.$disabledOption ? 0.45 : 1)};
   &:focus-visible {
     outline: 2px solid ${mainColors.yellow};
     outline-offset: -2px;
   }
   &:hover {
-    background: ${colorPalette.popBlack[300]};
+    background: ${(p) => (p.$disabledOption ? 'transparent' : colorPalette.popBlack[300])};
   }
 `;
+
+function defaultCloseOnSelect(mode: SelectDropdownSelectionMode, explicit?: boolean): boolean {
+  if (explicit !== undefined) return explicit;
+  return mode !== 'multi';
+}
 
 /**
  * NeoPOP-backed select: `Dropdown` trigger and `ElevatedCard` menu with `Typography` options.
@@ -100,9 +137,17 @@ const OptionButton = styled.button`
  */
 export function SelectDropdown({
   options,
+  selectionMode = 'single',
   value,
   onChange,
+  selectedValues = [],
+  onSelectedValuesChange,
   placeholder = 'Select',
+  staticTriggerLabel,
+  emptyMenuContent,
+  closeOnSelect: closeOnSelectProp,
+  maxSelected,
+  menuMount = 'inline',
   disabled = false,
   colorMode = 'dark',
   colorConfig,
@@ -115,38 +160,94 @@ export function SelectDropdown({
   menuEdgeColors,
   menuMinWidth,
   menuMaxHeight = 280,
+  ariaLabel,
+  onRootMouseDown,
 }: SelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const portalMenuRef = useRef<HTMLDivElement>(null);
+  const [portalBox, setPortalBox] = useState({ top: 0, left: 0, width: 0 });
+
+  const isMulti = selectionMode === 'multi';
+  const closeOnSelect = defaultCloseOnSelect(selectionMode, closeOnSelectProp);
 
   const selected = useMemo(
-    () => options.find((o) => o.value === value),
-    [options, value],
+    () => (isMulti ? null : options.find((o) => o.value === value)),
+    [options, value, isMulti],
   );
-  const triggerLabel = selected?.label ?? placeholder;
+
+  const triggerLabel = useMemo(() => {
+    if (staticTriggerLabel != null && staticTriggerLabel !== '') return staticTriggerLabel;
+    if (isMulti) return placeholder;
+    return selected?.label ?? placeholder;
+  }, [staticTriggerLabel, isMulti, placeholder, selected?.label]);
+
+  const updatePortalPosition = useCallback(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setPortalBox({
+      top: r.bottom + menuOffset,
+      left: r.left,
+      width: Math.max(r.width, 140),
+    });
+  }, [menuOffset]);
+
+  useLayoutEffect(() => {
+    if (!open || menuMount !== 'portal') return;
+    updatePortalPosition();
+  }, [open, menuMount, updatePortalPosition]);
+
+  useEffect(() => {
+    if (!open || menuMount !== 'portal') return;
+    const onScrollOrResize = () => updatePortalPosition();
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [open, menuMount, updatePortalPosition]);
 
   const toggle = useCallback(() => {
     if (disabled) return;
     setOpen((o) => !o);
   }, [disabled]);
 
-  const pick = useCallback(
+  const pickSingle = useCallback(
     (next: string) => {
       onChange?.(next);
-      setOpen(false);
+      if (closeOnSelect) setOpen(false);
     },
-    [onChange],
+    [onChange, closeOnSelect],
+  );
+
+  const toggleMulti = useCallback(
+    (optValue: string) => {
+      const has = selectedValues.includes(optValue);
+      const atCap =
+        maxSelected != null && selectedValues.length >= maxSelected && !has;
+      if (atCap) return;
+      const next = has
+        ? selectedValues.filter((v) => v !== optValue)
+        : [...selectedValues, optValue];
+      onSelectedValuesChange?.(next);
+      if (closeOnSelect) setOpen(false);
+    },
+    [selectedValues, onSelectedValuesChange, closeOnSelect, maxSelected],
   );
 
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: MouseEvent) => {
-      const root = rootRef.current;
-      if (root && !root.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      const inRoot = rootRef.current?.contains(t);
+      const inPortal = menuMount === 'portal' && portalMenuRef.current?.contains(t);
+      if (!inRoot && !inPortal) setOpen(false);
     };
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
-  }, [open]);
+  }, [open, menuMount]);
 
   useEffect(() => {
     if (!open) return;
@@ -159,6 +260,10 @@ export function SelectDropdown({
 
   const menuStyle = useMemo((): CSSProperties => {
     const style: CSSProperties = {
+      padding: 0,
+      maxWidth: 'none',
+      display: 'block',
+      backgroundColor: 'transparent',
       maxHeight: typeof menuMaxHeight === 'number' ? `${menuMaxHeight}px` : menuMaxHeight,
       overflowY: 'auto',
     };
@@ -177,6 +282,106 @@ export function SelectDropdown({
     [margin, padding, wrapperStyle],
   );
 
+  const portalFixedStyle: CSSProperties = useMemo(
+    () => ({
+      position: 'fixed',
+      top: portalBox.top,
+      left: portalBox.left,
+      width: portalBox.width,
+      zIndex: 10000,
+    }),
+    [portalBox],
+  );
+
+  const showEmptyPanel = options.length === 0 && emptyMenuContent != null;
+  const showOptionsList = options.length > 0;
+
+  const menuInner = (
+    <ElevatedCard
+      backgroundColor={menuBackgroundColor}
+      edgeColors={menuEdgeColors ?? TRANSPARENT_ELEVATED_CARD_EDGES}
+      style={menuStyle}
+      fullWidth
+    >
+      <Column style={{ gap: 0 }}>
+        {showEmptyPanel ? (
+          <div style={{ padding: '10px 14px' }}>{emptyMenuContent}</div>
+        ) : null}
+        {showOptionsList
+          ? options.map((opt) => {
+              const active = isMulti
+                ? selectedValues.includes(opt.value)
+                : opt.value === value;
+              const disabledOption =
+                isMulti &&
+                maxSelected != null &&
+                selectedValues.length >= maxSelected &&
+                !selectedValues.includes(opt.value);
+              return (
+                <OptionButton
+                  key={opt.value}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  disabled={disabledOption}
+                  $disabledOption={disabledOption}
+                  onClick={() => {
+                    if (disabledOption) return;
+                    if (isMulti) toggleMulti(opt.value);
+                    else pickSingle(opt.value);
+                  }}
+                >
+                  <Typography
+                    as="span"
+                    fontType={FontType.BODY}
+                    fontSize={isMulti ? 12 : 14}
+                    fontWeight={active ? FontWeights.SEMI_BOLD : FontWeights.REGULAR}
+                    color={
+                      disabledOption
+                        ? 'rgba(255,255,255,0.3)'
+                        : active
+                          ? mainColors.white
+                          : 'rgba(255,255,255,0.7)'
+                    }
+                  >
+                    {isMulti ? (
+                      <>
+                        {active ? '✓ ' : ''}
+                        {opt.label}
+                      </>
+                    ) : (
+                      opt.label
+                    )}
+                  </Typography>
+                </OptionButton>
+              );
+            })
+          : null}
+      </Column>
+    </ElevatedCard>
+  );
+
+  const listbox =
+    open && (showOptionsList || showEmptyPanel) ? (
+      menuMount === 'portal' ? (
+        <div ref={portalMenuRef} style={portalFixedStyle} role="listbox">
+          {menuInner}
+        </div>
+      ) : (
+        <MenuPosition $offset={menuOffset} role="listbox">
+          {menuInner}
+        </MenuPosition>
+      )
+    ) : null;
+
+  const dropdownProps: Record<string, unknown> = {
+    onClick: toggle,
+    label: triggerLabel,
+    colorMode,
+    colorConfig,
+  };
+  if (ariaLabel) dropdownProps['aria-label'] = ariaLabel;
+
   return (
     <Root
       ref={rootRef}
@@ -184,48 +389,10 @@ export function SelectDropdown({
       className={className}
       style={outerStyle}
       data-select-dropdown-open={open || undefined}
+      onMouseDown={onRootMouseDown}
     >
-      <Dropdown
-        onClick={toggle}
-        label={triggerLabel}
-        colorMode={colorMode}
-        colorConfig={colorConfig}
-      />
-      {open ? (
-        <MenuPosition $offset={menuOffset} role="listbox">
-          <ElevatedCard
-            backgroundColor={menuBackgroundColor}
-            edgeColors={menuEdgeColors}
-            style={menuStyle}
-            fullWidth
-          >
-            <Column style={{ gap: 0 }}>
-              {options.map((opt) => {
-                const active = opt.value === value;
-                return (
-                  <OptionButton
-                    key={opt.value}
-                    type="button"
-                    role="option"
-                    aria-selected={active}
-                    onClick={() => pick(opt.value)}
-                  >
-                    <Typography
-                      as="span"
-                      fontType={FontType.BODY}
-                      fontSize={14}
-                      fontWeight={active ? FontWeights.SEMI_BOLD : FontWeights.REGULAR}
-                      color={active ? mainColors.white : 'rgba(255,255,255,0.7)'}
-                    >
-                      {opt.label}
-                    </Typography>
-                  </OptionButton>
-                );
-              })}
-            </Column>
-          </ElevatedCard>
-        </MenuPosition>
-      ) : null}
+      <Dropdown {...dropdownProps} />
+      {menuMount === 'portal' && listbox ? createPortal(listbox, document.body) : listbox}
     </Root>
   );
 }

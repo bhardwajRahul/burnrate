@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { Typography } from '@cred/neopop-web/lib/components';
+import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import {
   SelectDropdown,
@@ -41,17 +43,15 @@ type StoryArgs = Omit<
 
 /** Mirrors Storybook `value` control while still updating the trigger after in-canvas picks. */
 function StatefulSelectDropdown(props: SelectDropdownProps) {
-  const [value, setValue] = useState(props.value);
-  useEffect(() => {
-    setValue(props.value);
-  }, [props.value]);
+  const [internal, setInternal] = useState<string | undefined>(undefined);
+  const value = props.value !== undefined ? props.value : internal;
 
   return (
     <SelectDropdown
       {...props}
       value={value}
       onChange={(v) => {
-        setValue(v);
+        if (props.value === undefined) setInternal(v);
         props.onChange?.(v);
       }}
     />
@@ -172,7 +172,13 @@ export default meta;
 type Story = StoryObj<StoryArgs>;
 
 export const Playground: Story = {
-  name: 'Playground',
+  args: {
+    triggerBorderColor: "rgba(86, 20, 20, 0.2)",
+    triggerTextColor: "#09100b",
+    triggerChevronColor: "rgba(0, 0, 0, 0.5)"
+  },
+
+  name: 'Playground'
 };
 
 export const WithValue: Story = {
@@ -186,6 +192,9 @@ export const Disabled: Story = {
   args: {
     value: 'inr',
     disabled: true,
+    triggerBorderColor: "rgba(9, 1, 1, 0.2)",
+    triggerTextColor: "#000000",
+    triggerChevronColor: "rgba(177, 28, 28, 0.5)"
   },
 };
 
@@ -194,6 +203,9 @@ export const LightTrigger: Story = {
   args: {
     colorMode: 'light',
     value: 'usd',
+    triggerBorderColor: "rgba(168, 31, 31, 0.2)",
+    triggerTextColor: "#0f0909",
+    triggerChevronColor: "rgba(17, 14, 14, 0.5)"
   },
 };
 
@@ -213,6 +225,7 @@ export const TallMenu: Story = {
   name: 'Scrollable menu',
   args: {
     menuMaxHeight: 140,
+
     options: [
       ...SAMPLE_OPTIONS,
       { value: 'chf', label: 'CHF — Swiss Franc' },
@@ -220,5 +233,118 @@ export const TallMenu: Story = {
       { value: 'cad', label: 'CAD — Canadian Dollar' },
       { value: 'sek', label: 'SEK — Swedish Krona' },
     ],
+
+    colorMode: "light",
+    triggerBorderColor: "rgba(0, 0, 0, 0.2)",
+    triggerTextColor: "#000000",
+    triggerChevronColor: "rgba(197, 20, 20, 0.5)"
   },
+};
+
+const TAG_OPTIONS: SelectDropdownOption[] = [
+  { value: 'travel', label: 'Travel' },
+  { value: 'dining', label: 'Dining' },
+  { value: 'groceries', label: 'Groceries' },
+  { value: 'fuel', label: 'Fuel' },
+];
+
+function MultiWithCapDemo() {
+  const [selected, setSelected] = useState<string[]>([]);
+  return (
+    <SelectDropdown
+      selectionMode="multi"
+      options={TAG_OPTIONS}
+      selectedValues={selected}
+      onSelectedValuesChange={setSelected}
+      maxSelected={3}
+      staticTriggerLabel="Tag (max 3) ▾"
+      placeholder="Tags"
+      menuMinWidth={200}
+      colorConfig={{
+        border: 'rgba(255,255,255,0.2)',
+        text: mainColors.white,
+        chevron: 'rgba(255,255,255,0.5)',
+      }}
+    />
+  );
+}
+
+export const MultiWithCap: StoryObj = {
+  name: 'Multi select (cap 3)',
+  render: () => <MultiWithCapDemo />,
+};
+
+function MultiPortalDemo() {
+  const [selected, setSelected] = useState<string[]>([]);
+  return (
+    <div
+      style={{
+        height: 160,
+        width: 320,
+        overflow: 'auto',
+        border: '1px solid rgba(255,255,255,0.2)',
+        padding: 12,
+        background: colorPalette.popBlack[400],
+      }}
+    >
+      <Typography fontType={FontType.BODY} fontSize={12} color="rgba(255,255,255,0.6)">
+        Scroll this box — portal menu should not be clipped.
+      </Typography>
+      <div style={{ height: 120 }} />
+      <SelectDropdown
+        selectionMode="multi"
+        menuMount="portal"
+        options={TAG_OPTIONS}
+        selectedValues={selected}
+        onSelectedValuesChange={setSelected}
+        maxSelected={3}
+        staticTriggerLabel="Portal multi ▾"
+        placeholder="Tags"
+        menuMinWidth={180}
+        menuMaxHeight={200}
+        colorConfig={{
+          border: 'rgba(255,255,255,0.2)',
+          text: mainColors.white,
+          chevron: 'rgba(255,255,255,0.5)',
+        }}
+      />
+      <div style={{ height: 120 }} />
+    </div>
+  );
+}
+
+export const MultiPortalClippedScroll: StoryObj = {
+  name: 'Multi + portal (scroll parent)',
+  render: () => <MultiPortalDemo />,
+  parameters: { layout: 'centered' },
+};
+
+function EmptyOptionsDemo() {
+  return (
+    <SelectDropdown
+      options={[]}
+      placeholder="No tags defined"
+      emptyMenuContent={
+        <Typography
+          fontType={FontType.BODY}
+          fontSize={12}
+          fontWeight={FontWeights.REGULAR}
+          color="rgba(255,255,255,0.5)"
+          style={{ maxWidth: 220, lineHeight: 1.4 }}
+        >
+          Define tags on the Customize page first.
+        </Typography>
+      }
+      colorConfig={{
+        border: 'rgba(255,255,255,0.2)',
+        text: mainColors.white,
+        chevron: 'rgba(255,255,255,0.5)',
+      }}
+    />
+  );
+}
+
+export const EmptyOptions: StoryObj = {
+  name: 'Empty options + emptyMenuContent',
+  render: () => <EmptyOptionsDemo />,
 };

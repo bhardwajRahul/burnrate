@@ -42,6 +42,8 @@ export interface Statement {
   /** Stored path on the server (full path). */
   filePath?: string | null;
   fileName?: string | null;
+  /** Path for UI (client/original path for manual uploads; watch path otherwise). */
+  displayPath?: string | null;
   /** Persisted parse failure text when status is parse_error. */
   statusMessage?: string | null;
 }

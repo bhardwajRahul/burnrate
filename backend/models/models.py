@@ -69,6 +69,7 @@ class Statement(Base):
     period_end = Column(Date, nullable=True)
     file_hash = Column(String(64), nullable=False)  # SHA-256
     file_path = Column(String(1024), nullable=True)
+    original_upload_path = Column(String(2048), nullable=True)
     transaction_count = Column(Integer, default=0)
     total_spend = Column(Float, default=0.0)
     total_amount_due = Column(Float, nullable=True)

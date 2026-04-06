@@ -16,7 +16,10 @@ import { toast } from '@/components/Toast';
 import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import { Typography } from '@cred/neopop-web/lib/components';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
-import { ElevatedCard } from '@cred/neopop-web/lib/components';
+import {
+  SelectableElevatedCard as ElevatedCard,
+  TRANSPARENT_ELEVATED_CARD_EDGES,
+} from '@/components/SelectableElevatedCard';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { SlidersHorizontal } from 'lucide-react';
 import { CloseButton } from '@/components/CloseButton';
@@ -207,11 +210,15 @@ function StatementPeriodsModal({
       />
       <ElevatedCard
         backgroundColor={colorPalette.black[90]}
+        edgeColors={TRANSPARENT_ELEVATED_CARD_EDGES}
         style={{
+          padding: 0,
           position: 'relative',
           width: '100%',
           maxWidth: 560,
           maxHeight: '80vh',
+          display: 'block',
+          backgroundColor: 'transparent',
           overflow: 'auto',
           boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
@@ -447,9 +454,6 @@ function DashboardContent() {
       const result = await uploadStatementsBulk(files);
       toast.dismiss(loadingId);
       notifyBulkUploadToasts(result, toast);
-      if (result.success > 0) {
-        setTimeout(() => window.location.reload(), 1500);
-      }
       return result;
     } catch (err) {
       toast.dismiss(loadingId);
@@ -506,7 +510,16 @@ function DashboardContent() {
             </ClickableSpend>
           )}
           <div style={{ flex: 1, minWidth: 280 }}>
-            <StatUpload onUpload={handleUpload} onBulkUpload={handleBulkUpload} compact />
+            <StatUpload
+              onUpload={handleUpload}
+              onBulkUpload={handleBulkUpload}
+              onBulkUploadSummaryDismissed={(result) => {
+                if (result.success > 0) {
+                  window.location.reload();
+                }
+              }}
+              compact
+            />
           </div>
         </TopRow>
 

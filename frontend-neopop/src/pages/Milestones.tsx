@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
-import { Button, Typography, ElevatedCard, Tag, InputField, Row, Column } from '@cred/neopop-web/lib/components';
+import { Button, Typography, Tag, InputField, Row, Column } from '@cred/neopop-web/lib/components';
+import { SelectableElevatedCard as ElevatedCard } from '@/components/SelectableElevatedCard';
 import { mainColors, colorPalette } from '@cred/neopop-web/lib/primitives';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { useMilestones, useCards } from '@/hooks/useApi';
@@ -9,6 +10,7 @@ import { createMilestone, deleteMilestone, archiveMilestone, triggerMilestoneSyn
 import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import { toast } from '@/components/Toast';
 import { CloseButton } from '@/components/CloseButton';
+import { SelectDropdown, type SelectDropdownOption } from '@/components/SelectDropdown';
 import { Target, TrendingUp, Calendar, RefreshCw, Plus, Trash2, Archive } from 'lucide-react';
 import { BANK_CONFIG } from '@/lib/types';
 import type { Bank, Milestone } from '@/lib/types';
@@ -95,6 +97,28 @@ const edgeAccent = {
   bottom: colorPalette.rss[600],
   right: colorPalette.rss[800],
 };
+
+const milestoneDropdownTrigger = {
+  border: 'rgba(255,255,255,0.12)',
+  text: mainColors.white,
+  chevron: 'rgba(255,255,255,0.5)',
+};
+
+const PERIOD_KIND_OPTIONS: SelectDropdownOption[] = [
+  { value: 'calendar_month', label: 'Monthly' },
+  { value: 'calendar_quarter', label: 'Quarterly' },
+  { value: 'calendar_year', label: 'Annual' },
+  { value: 'rolling_days', label: 'Rolling 30 days' },
+];
+
+const MILESTONE_TYPE_OPTIONS: SelectDropdownOption[] = [
+  { value: 'fee_waiver', label: 'Fee Waiver' },
+  { value: 'bonus_points', label: 'Bonus Points' },
+  { value: 'lounge_access', label: 'Lounge Access' },
+  { value: 'accelerated_rewards', label: 'Accelerated Rewards' },
+  { value: 'voucher', label: 'Voucher' },
+  { value: 'cashback', label: 'Cashback' },
+];
 
 export function Milestones() {
   const navigate = useNavigate();
@@ -270,7 +294,13 @@ export function Milestones() {
                       key={m.id}
                       backgroundColor={mainColors.black}
                       edgeColors={edgeAccent}
-                      style={{ padding: 16 }}
+                      style={{
+                        padding: 16,
+                        maxWidth: 'none',
+                        maxHeight: 'none',
+                        display: 'block',
+                        backgroundColor: 'transparent',
+                      }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -390,7 +420,15 @@ export function Milestones() {
               backgroundColor={mainColors.black}
               edgeColors={edgeAccent}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              style={{ width: '100%', maxWidth: 460, boxShadow: '0 24px 48px rgba(0,0,0,0.55)' }}
+              style={{
+                padding: 0,
+                width: '100%',
+                maxWidth: 460,
+                maxHeight: 'none',
+                display: 'block',
+                backgroundColor: 'transparent',
+                boxShadow: '0 24px 48px rgba(0,0,0,0.55)',
+              }}
             >
               <Column style={{ width: '100%', backgroundColor: colorPalette.black[500] }}>
                 <Row
@@ -448,6 +486,15 @@ function CreateMilestoneModalContent({
   const [periodKind, setPeriodKind] = useState('calendar_quarter');
   const [milestoneType, setMilestoneType] = useState('fee_waiver');
 
+  const cardOptions = useMemo<SelectDropdownOption[]>(
+    () =>
+      cards.map((c) => ({
+        value: c.id,
+        label: `${BANK_CONFIG[c.bank as Bank]?.name} ···· ${c.last4}`,
+      })),
+    [cards],
+  );
+
   const labelProps = {
     as: 'label' as const,
     fontType: FontType.BODY,
@@ -462,17 +509,16 @@ function CreateMilestoneModalContent({
       <div style={{ padding: 20 }}>
         <FormField>
           <Typography {...labelProps}>Card *</Typography>
-          <select
+          <SelectDropdown
+            options={cardOptions}
             value={cardId}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setCardId(e.target.value)}
-            style={inputStyle}
-          >
-            {cards.map((c) => (
-              <option key={c.id} value={c.id}>
-                {BANK_CONFIG[c.bank as Bank]?.name} ···· {c.last4}
-              </option>
-            ))}
-          </select>
+            onChange={setCardId}
+            placeholder="Select card"
+            ariaLabel="Card"
+            wrapperStyle={{ width: '100%', boxSizing: 'border-box' }}
+            colorConfig={milestoneDropdownTrigger}
+            menuEdgeColors={edgeAccent}
+          />
         </FormField>
 
         <FormField>
@@ -500,32 +546,28 @@ function CreateMilestoneModalContent({
 
         <FormField>
           <Typography {...labelProps}>Period</Typography>
-          <select
+          <SelectDropdown
+            options={PERIOD_KIND_OPTIONS}
             value={periodKind}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPeriodKind(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="calendar_month">Monthly</option>
-            <option value="calendar_quarter">Quarterly</option>
-            <option value="calendar_year">Annual</option>
-            <option value="rolling_days">Rolling 30 days</option>
-          </select>
+            onChange={setPeriodKind}
+            ariaLabel="Period"
+            wrapperStyle={{ width: '100%', boxSizing: 'border-box' }}
+            colorConfig={milestoneDropdownTrigger}
+            menuEdgeColors={edgeAccent}
+          />
         </FormField>
 
         <FormField>
           <Typography {...labelProps}>Type</Typography>
-          <select
+          <SelectDropdown
+            options={MILESTONE_TYPE_OPTIONS}
             value={milestoneType}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMilestoneType(e.target.value)}
-            style={inputStyle}
-          >
-            <option value="fee_waiver">Fee Waiver</option>
-            <option value="bonus_points">Bonus Points</option>
-            <option value="lounge_access">Lounge Access</option>
-            <option value="accelerated_rewards">Accelerated Rewards</option>
-            <option value="voucher">Voucher</option>
-            <option value="cashback">Cashback</option>
-          </select>
+            onChange={setMilestoneType}
+            ariaLabel="Milestone type"
+            wrapperStyle={{ width: '100%', boxSizing: 'border-box' }}
+            colorConfig={milestoneDropdownTrigger}
+            menuEdgeColors={edgeAccent}
+          />
         </FormField>
       </div>
 

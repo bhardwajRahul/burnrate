@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ButtonWithIcon } from '@/components/ButtonWithIcon';
 import { Navbar } from '@/components/Navbar';
-import { StatUpload } from '@/components/StatUpload';
-import { Button, Typography, ElevatedCard, Tag, InputField, Row, Column } from '@cred/neopop-web/lib/components';
+import { Button, Typography, Tag, InputField, Row, Column } from '@cred/neopop-web/lib/components';
+import {
+  SelectableElevatedCard as ElevatedCard,
+  TRANSPARENT_ELEVATED_CARD_EDGES,
+} from '@/components/SelectableElevatedCard';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import {
   getStatements,
@@ -18,8 +22,6 @@ import {
   getTagDefinitions,
   createTagDefinition,
   deleteTagDefinition,
-  uploadStatement,
-  uploadStatementsBulk,
   getGmailStatus,
   startGmailAuth,
   disconnectGmail,
@@ -27,8 +29,7 @@ import {
 import type { Statement } from '@/lib/types';
 import type { CategoryResponse, TagDefinitionResponse, GmailStatusResponse } from '@/lib/api';
 import { toast } from '@/components/Toast';
-import { notifyBulkUploadToasts, syntheticBulkUploadFailure } from '@/lib/bulkUploadSummary';
-import { RefreshCw, Palette, Trash2, Tag as TagIcon, Plus, AlertTriangle, MessageSquarePlus, CreditCard, Landmark, Lock, Mail } from 'lucide-react';
+import { RefreshCw, Palette, Trash2, Tag as TagIcon, Plus, AlertTriangle, MessageSquarePlus, Lock, Mail } from 'lucide-react';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { CloseButton } from '@/components/CloseButton';
 import { TrashIconButton } from '@/components/TrashIconButton';
@@ -209,11 +210,15 @@ export function DefineTagsModal({ open, onClose }: { open: boolean; onClose: () 
       <ModalBackdrop onClick={onClose} />
       <ElevatedCard
         backgroundColor={colorPalette.black[90]}
+        edgeColors={TRANSPARENT_ELEVATED_CARD_EDGES}
         style={{
+          padding: 0,
           position: 'relative',
           width: '100%',
           maxWidth: 480,
           maxHeight: '80vh',
+          display: 'block',
+          backgroundColor: 'transparent',
           overflow: 'auto',
           boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
@@ -406,11 +411,15 @@ export function ReparseRemoveModal({ open, onClose }: { open: boolean; onClose: 
       <ModalBackdrop onClick={onClose} />
       <ElevatedCard
         backgroundColor={colorPalette.black[90]}
+        edgeColors={TRANSPARENT_ELEVATED_CARD_EDGES}
         style={{
+          padding: 0,
           position: 'relative',
           width: '100%',
           maxWidth: 560,
           maxHeight: '80vh',
+          display: 'block',
+          backgroundColor: 'transparent',
           overflow: 'auto',
           boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
@@ -641,152 +650,483 @@ function normalizeHexInput(raw: string): string | null {
   return null;
 }
 
-function colorInputValue(hex: string): string {
+/** Same stops as the design color wheel; CSS conic-gradient (SVG has no native conicGradient). */
+const HUE_WHEEL_CONIC =
+  'conic-gradient(from 0deg, #FF0000, #FF7F00, #FFFF00, #7FFF00, #00FF00, #00FF7F, #00FFFF, #007FFF, #0000FF, #7F00FF, #FF00FF, #FF007F, #FF0000)';
+
+function parseHexToRgb(hex: string): [number, number, number] | null {
   const n = normalizeHexInput(hex.startsWith('#') ? hex : `#${hex}`);
-  return n ?? '#FF8744';
+  if (!n) return null;
+  const v = parseInt(n.slice(1), 16);
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
 }
+
+function rgbToHex(r: number, g: number, b: number): string {
+  const clamp = (x: number) => Math.max(0, Math.min(255, Math.round(x)));
+  return `#${[clamp(r), clamp(g), clamp(b)].map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase()}`;
+}
+
+function rgbToHsv(r: number, g: number, b: number): { h: number; s: number; v: number } {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const d = max - min;
+  let h = 0;
+  if (d > 1e-6) {
+    if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
+    else if (max === gn) h = ((bn - rn) / d + 2) / 6;
+    else h = ((rn - gn) / d + 4) / 6;
+  }
+  h *= 360;
+  const s = max < 1e-6 ? 0 : d / max;
+  const v = max;
+  return { h, s, v };
+}
+
+function hsvToRgb(h: number, s: number, v: number): { r: number; g: number; b: number } {
+  const hh = ((h % 360) + 360) % 360;
+  const c = v * s;
+  const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+  const m = v - c;
+  let rp = 0;
+  let gp = 0;
+  let bp = 0;
+  if (hh < 60) {
+    rp = c;
+    gp = x;
+  } else if (hh < 120) {
+    rp = x;
+    gp = c;
+  } else if (hh < 180) {
+    gp = c;
+    bp = x;
+  } else if (hh < 240) {
+    gp = x;
+    bp = c;
+  } else if (hh < 300) {
+    rp = x;
+    bp = c;
+  } else {
+    rp = c;
+    bp = x;
+  }
+  return {
+    r: Math.round((rp + m) * 255),
+    g: Math.round((gp + m) * 255),
+    b: Math.round((bp + m) * 255),
+  };
+}
+
+function hsvToHex(h: number, s: number, v: number): string {
+  const { r, g, b } = hsvToRgb(h, s, v);
+  return rgbToHex(r, g, b);
+}
+
+function hexToHsv(hex: string, preserveHue = 0): { h: number; s: number; v: number } {
+  const rgb = parseHexToRgb(hex);
+  if (!rgb) return { h: preserveHue, s: 1, v: 1 };
+  const { h, s, v } = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+  if (s < 1e-4) return { h: preserveHue, s: 0, v };
+  return { h, s, v };
+}
+
+/** Safe CSS color for category swatches (hex from API or edits). */
+function displayHexColor(raw: string): string {
+  const n = normalizeHexInput(raw.startsWith('#') ? raw : `#${raw}`);
+  return n ?? '#888888';
+}
+
+const COLOR_PICKER_POPOVER_WIDTH = 292;
+const COLOR_PICKER_LAYER_Z = 11000;
+
+const WHEEL_SIZE = 168;
+const WHEEL_OUTER = WHEEL_SIZE / 2;
+const WHEEL_INNER = 48;
+const HUE_RING_MID = (WHEEL_OUTER + WHEEL_INNER) / 2;
 
 function ColorPickerPopover({
   selectedColor,
   onSelect,
   onClose,
+  anchorRef,
 }: {
   selectedColor: string;
   onSelect: (color: string) => void;
   onClose: () => void;
+  anchorRef: React.RefObject<HTMLElement | null>;
 }) {
+  const hueRef = useRef(24);
+  const [hsv, setHsv] = useState(() => hexToHsv(selectedColor, hueRef.current));
+  const hsvRef = useRef(hsv);
+  hsvRef.current = hsv;
   const [hexDraft, setHexDraft] = useState(selectedColor);
+  const wheelWrapRef = useRef<HTMLDivElement>(null);
+  const svRef = useRef<HTMLDivElement>(null);
+  const popoverPanelRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<'hue' | 'sv' | null>(null);
+  const [fixedPos, setFixedPos] = useState({ top: 0, left: 0 });
+
+  const updateFixedPosition = useCallback(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const panel = popoverPanelRef.current;
+    const pad = 8;
+    const h = panel?.offsetHeight ?? Math.min(520, window.innerHeight * 0.78);
+    let left = rect.left;
+    let top = rect.bottom + pad;
+    if (left + COLOR_PICKER_POPOVER_WIDTH > window.innerWidth - pad) {
+      left = window.innerWidth - COLOR_PICKER_POPOVER_WIDTH - pad;
+    }
+    if (left < pad) left = pad;
+    if (top + h > window.innerHeight - pad) {
+      top = rect.top - h - pad;
+    }
+    if (top < pad) top = pad;
+    setFixedPos({ top, left });
+  }, [anchorRef]);
+
+  useLayoutEffect(() => {
+    updateFixedPosition();
+    const raf = requestAnimationFrame(() => updateFixedPosition());
+    const panel = popoverPanelRef.current;
+    const ro =
+      panel && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => updateFixedPosition())
+        : null;
+    ro?.observe(panel!);
+    window.addEventListener('resize', updateFixedPosition);
+    window.addEventListener('scroll', updateFixedPosition, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener('resize', updateFixedPosition);
+      window.removeEventListener('scroll', updateFixedPosition, true);
+    };
+  }, [updateFixedPosition]);
 
   useEffect(() => {
+    const next = hexToHsv(selectedColor, hueRef.current);
+    if (next.s > 1e-4) hueRef.current = next.h;
+    setHsv(next);
     setHexDraft(selectedColor);
   }, [selectedColor]);
+
+  const liveHex = hsvToHex(hsv.h, hsv.s, hsv.v);
+  const chromaRgb = hsvToRgb(hsv.h, 1, 1);
+  const chromaHex = rgbToHex(chromaRgb.r, chromaRgb.g, chromaRgb.b);
+
+  const pushHsv = useCallback(
+    (next: { h: number; s: number; v: number }) => {
+      if (next.s > 1e-4) hueRef.current = next.h;
+      setHsv(next);
+      const hex = hsvToHex(next.h, next.s, next.v);
+      setHexDraft(hex);
+      onSelect(hex);
+    },
+    [onSelect],
+  );
+
+  const readHueFromWheelClient = useCallback(
+    (clientX: number, clientY: number) => {
+      const el = wheelWrapRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const dx = clientX - cx;
+      const dy = clientY - cy;
+      const dist = Math.hypot(dx, dy);
+      if (dist < WHEEL_INNER || dist > WHEEL_OUTER + 4) return;
+      const deg = (Math.atan2(dx, -dy) * 180) / Math.PI;
+      const h = (deg + 360) % 360;
+      const { s, v } = hsvRef.current;
+      pushHsv({ h, s, v });
+    },
+    [pushHsv],
+  );
+
+  const readSvFromClient = useCallback(
+    (clientX: number, clientY: number) => {
+      const el = svRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+      const y = Math.max(0, Math.min(1, (clientY - r.top) / r.height));
+      const s = x;
+      const v = 1 - y;
+      const { h } = hsvRef.current;
+      pushHsv({ h, s, v });
+    },
+    [pushHsv],
+  );
+
+  useEffect(() => {
+    const stop = () => {
+      dragRef.current = null;
+    };
+    const move = (e: PointerEvent) => {
+      if (dragRef.current === 'hue') readHueFromWheelClient(e.clientX, e.clientY);
+      else if (dragRef.current === 'sv') readSvFromClient(e.clientX, e.clientY);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+    };
+  }, [readHueFromWheelClient, readSvFromClient]);
+
+  const onWheelPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = 'hue';
+    readHueFromWheelClient(e.clientX, e.clientY);
+  };
+
+  const onSvPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = 'sv';
+    readSvFromClient(e.clientX, e.clientY);
+  };
 
   const applyHex = () => {
     const parsed = normalizeHexInput(hexDraft);
     if (parsed) {
+      const next = hexToHsv(parsed, hueRef.current);
+      if (next.s > 1e-4) hueRef.current = next.h;
+      setHsv(next);
       onSelect(parsed);
       onClose();
     }
   };
 
-  return (
+  const hueRad = (hsv.h * Math.PI) / 180;
+  const dotX = WHEEL_SIZE / 2 + HUE_RING_MID * Math.sin(hueRad);
+  const dotY = WHEEL_SIZE / 2 - HUE_RING_MID * Math.cos(hueRad);
+
+  const portalContent = (
     <>
       <div
-        style={{ position: 'fixed', inset: 0, zIndex: 200 }}
+        style={{ position: 'fixed', inset: 0, zIndex: COLOR_PICKER_LAYER_Z - 1 }}
         onClick={onClose}
         aria-hidden
       />
       <div
+        ref={popoverPanelRef}
         style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          marginTop: 8,
-          zIndex: 201,
-          width: 300,
-          maxHeight: 'min(420px, 70vh)',
+          position: 'fixed',
+          top: fixedPos.top,
+          left: fixedPos.left,
+          zIndex: COLOR_PICKER_LAYER_Z,
+          width: COLOR_PICKER_POPOVER_WIDTH,
+          maxHeight: 'min(520px, 78vh)',
           overflowY: 'auto',
-          background: colorPalette.black[90],
-          border: '1px solid rgba(255,255,255,0.14)',
-          borderRadius: 16,
-          padding: 16,
-          boxShadow: '0 16px 48px rgba(0,0,0,0.65)',
+          background: 'linear-gradient(165deg, rgba(38,38,42,0.98) 0%, rgba(22,22,26,0.99) 100%)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 20,
+          padding: 18,
+          boxShadow: '0 24px 64px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.04) inset',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.SEMI_BOLD} color="rgba(255,255,255,0.75)" style={{ marginBottom: 12 }}>
-          Custom
+        <Typography fontType={FontType.BODY} fontSize={11} fontWeight={FontWeights.SEMI_BOLD} color="rgba(255,255,255,0.5)" style={{ marginBottom: 14, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          Custom color
         </Typography>
-        <Row alignItems="center" style={{ gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 16 }}>
           <div
+            ref={wheelWrapRef}
+            onPointerDown={onWheelPointerDown}
             style={{
               position: 'relative',
-              width: 40,
-              height: 40,
+              width: WHEEL_SIZE,
+              height: WHEEL_SIZE,
               flexShrink: 0,
-              borderRadius: 10,
-              backgroundColor: colorInputValue(selectedColor),
-              border: '2px solid rgba(255,255,255,0.25)',
-              boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)',
+              borderRadius: '50%',
+              cursor: 'crosshair',
+              touchAction: 'none',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08) inset',
             }}
+            aria-label="Hue ring — drag to choose hue"
           >
-            <input
-              type="color"
-              value={colorInputValue(selectedColor)}
-              onChange={(e) => onSelect(e.target.value)}
+            <div
               style={{
                 position: 'absolute',
                 inset: 0,
-                width: '100%',
-                height: '100%',
-                opacity: 0,
-                cursor: 'pointer',
+                borderRadius: '50%',
+                background: HUE_WHEEL_CONIC,
               }}
-              aria-label="Choose color with native picker"
             />
-          </div>
-          <div style={{ flex: 1, minWidth: 120 }}>
-            <InputField
-              colorMode="dark"
-              placeholder="#RRGGBB"
-              value={hexDraft}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHexDraft(e.target.value)}
+            <div
               style={{
-                fontFamily: 'ui-monospace, Menlo, monospace',
-                fontSize: 13,
-                backgroundColor: colorPalette.black[100],
-                border: '1px solid rgba(255,255,255,0.2)',
-                borderRadius: 8,
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: WHEEL_INNER * 2,
+                height: WHEEL_INNER * 2,
+                borderRadius: '50%',
+                background: colorPalette.black[90],
+                border: '1px solid rgba(255,255,255,0.1)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.35) inset',
+                pointerEvents: 'auto',
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                width: 16,
+                height: 16,
+                marginLeft: -8,
+                marginTop: -8,
+                left: dotX,
+                top: dotY,
+                borderRadius: '50%',
+                background: '#fff',
+                border: '2px solid rgba(0,0,0,0.35)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                pointerEvents: 'none',
               }}
             />
           </div>
-          <Button type="button" variant="primary" kind="elevated" size="small" colorMode="dark" onClick={applyHex}>
-            Apply
-          </Button>
-        </Row>
-        <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.SEMI_BOLD} color="rgba(255,255,255,0.75)" style={{ marginBottom: 10 }}>
+
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div
+              style={{
+                width: '100%',
+                height: 44,
+                borderRadius: 12,
+                background: liveHex,
+                border: '1px solid rgba(255,255,255,0.15)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12)',
+              }}
+              aria-hidden
+            />
+            <Row alignItems="center" style={{ gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <InputField
+                  colorMode="dark"
+                  placeholder="#RRGGBB"
+                  value={hexDraft}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHexDraft(e.target.value)}
+                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && applyHex()}
+                  style={{
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                    fontSize: 13,
+                    backgroundColor: 'rgba(0,0,0,0.35)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                    borderRadius: 10,
+                  }}
+                />
+              </div>
+              <Button type="button" variant="primary" kind="elevated" size="small" colorMode="dark" onClick={applyHex}>
+                Apply
+              </Button>
+            </Row>
+          </div>
+        </div>
+
+        <Typography fontType={FontType.BODY} fontSize={11} fontWeight={FontWeights.SEMI_BOLD} color="rgba(255,255,255,0.45)" style={{ marginBottom: 8, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          Saturation & brightness
+        </Typography>
+        <div
+          ref={svRef}
+          onPointerDown={onSvPointerDown}
+          style={{
+            position: 'relative',
+            height: 96,
+            width: '100%',
+            borderRadius: 14,
+            overflow: 'hidden',
+            cursor: 'crosshair',
+            touchAction: 'none',
+            marginBottom: 18,
+            backgroundColor: chromaHex,
+            backgroundImage: 'linear-gradient(to top, #000000, transparent), linear-gradient(to right, #ffffff, transparent)',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08) inset',
+          }}
+          aria-label="Saturation and brightness — drag to adjust"
+        >
+          <div
+            style={{
+              position: 'absolute',
+              width: 18,
+              height: 18,
+              marginLeft: -9,
+              marginTop: -9,
+              left: `${hsv.s * 100}%`,
+              top: `${(1 - hsv.v) * 100}%`,
+              borderRadius: '50%',
+              border: '2px solid #fff',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.25)',
+              pointerEvents: 'none',
+            }}
+          />
+        </div>
+
+        <Typography fontType={FontType.BODY} fontSize={11} fontWeight={FontWeights.SEMI_BOLD} color="rgba(255,255,255,0.45)" style={{ marginBottom: 12, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
           Palette
         </Typography>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(8, 1fr)',
-            gap: 8,
+            gridTemplateColumns: 'repeat(6, 1fr)',
+            gap: 10,
           }}
         >
-          {CATEGORY_COLORS.map((c) => (
-            <Button
-              key={c.value}
-              type="button"
-              variant="secondary"
-              kind="flat"
-              size="small"
-              colorMode="dark"
-              onClick={() => {
-                onSelect(c.value);
-                onClose();
-              }}
-              title={c.name}
-              aria-label={c.name}
-              style={{
-                width: 28,
-                height: 28,
-                minWidth: 28,
-                borderRadius: 8,
-                backgroundColor: c.value,
-                border:
-                  selectedColor.toLowerCase() === c.value.toLowerCase()
-                    ? `2px solid ${mainColors.white}`
-                    : '2px solid rgba(255,255,255,0.12)',
-                padding: 0,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
-              }}
-            />
-          ))}
+          {CATEGORY_COLORS.map((c, idx) => {
+            const selected = selectedColor.toLowerCase() === c.value.toLowerCase();
+            return (
+              <button
+                key={`${c.value}-${idx}`}
+                type="button"
+                title={c.name}
+                aria-label={c.name}
+                aria-pressed={selected}
+                onClick={() => {
+                  onSelect(c.value);
+                  onClose();
+                }}
+                style={{
+                  aspectRatio: '1',
+                  minWidth: 0,
+                  borderRadius: 12,
+                  padding: 0,
+                  border: selected ? '2px solid rgba(255,255,255,0.95)' : '2px solid rgba(255,255,255,0.1)',
+                  background: c.value,
+                  cursor: 'pointer',
+                  boxShadow: selected
+                    ? `0 0 0 2px rgba(0,0,0,0.4), 0 6px 20px ${c.value}55, 0 4px 12px rgba(0,0,0,0.45)`
+                    : '0 4px 14px rgba(0,0,0,0.35)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (!selected) {
+                    e.currentTarget.style.transform = 'scale(1.06)';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.35)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = '';
+                  if (!selected) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                }}
+              />
+            );
+          })}
         </div>
       </div>
     </>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(portalContent, document.body);
 }
 
 function ColorPickerButton({
@@ -797,47 +1137,39 @@ function ColorPickerButton({
   onSelect: (color: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const fill = displayHexColor(color);
 
   return (
-    <div style={{ position: 'relative' }}>
-      <Button
+    <>
+      <button
+        ref={anchorRef}
         type="button"
-        variant="secondary"
-        kind="flat"
-        size="small"
-        colorMode="dark"
         onClick={() => setOpen((v) => !v)}
+        aria-label="Choose category color"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 8,
-          padding: '6px 10px',
+          width: 32,
+          height: 32,
+          borderRadius: '50%',
+          padding: 0,
+          border: '1px solid rgba(255,255,255,0.22)',
+          backgroundColor: fill,
+          cursor: 'pointer',
+          flexShrink: 0,
+          boxSizing: 'border-box',
         }}
-      >
-        <span
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: '50%',
-            backgroundColor: color,
-            display: 'inline-block',
-            flexShrink: 0,
-            border: '1px solid rgba(255,255,255,0.2)',
-          }}
-        />
-        <Palette size={14} color="rgba(255,255,255,0.5)" />
-      </Button>
+      />
       {open && (
         <ColorPickerPopover
+          anchorRef={anchorRef}
           selectedColor={color}
           onSelect={onSelect}
           onClose={() => setOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -985,11 +1317,15 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
       <ModalBackdrop onClick={onClose} />
       <ElevatedCard
         backgroundColor={colorPalette.black[90]}
+        edgeColors={TRANSPARENT_ELEVATED_CARD_EDGES}
         style={{
+          padding: 0,
           position: 'relative',
           width: '100%',
           maxWidth: 720,
           maxHeight: '85vh',
+          display: 'block',
+          backgroundColor: 'transparent',
           overflow: 'auto',
           boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
@@ -1059,8 +1395,6 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
                     </td>
 
                     <td>
-                      <div style={{ minWidth: 20 }}></div>
-                      <div style={{ marginRight: 100 }}></div>
                       <ColorPickerButton
                         color={edits[cat.id]?.color ?? cat.color}
                         onSelect={(c) => setEdit(cat.id, 'color', c)}
@@ -1198,11 +1532,15 @@ function GmailAutosyncModal({ open, onClose }: { open: boolean; onClose: () => v
       <ModalBackdrop onClick={onClose} />
       <ElevatedCard
         backgroundColor={colorPalette.black[90]}
+        edgeColors={TRANSPARENT_ELEVATED_CARD_EDGES}
         style={{
+          padding: 0,
           position: 'relative',
           width: '100%',
           maxWidth: 480,
           maxHeight: '80vh',
+          display: 'block',
+          backgroundColor: 'transparent',
           overflow: 'auto',
           boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
@@ -1276,106 +1614,10 @@ export function Customize() {
     }
   }, [searchParams, setSearchParams]);
 
-  const handleCCUpload = async (file: File, password?: string) => {
-    const loadingId = toast.loading('Processing card statement...');
-    try {
-      const result = await uploadStatement(file, undefined, password, 'CC');
-      toast.dismiss(loadingId);
-      if (result.status === 'success') {
-        toast.success(`${result.count ?? 0} transactions imported from ${(result.bank ?? '').toUpperCase()} statement`);
-      } else if (result.status === 'duplicate') {
-        toast.info(result.message ?? 'Statement already imported');
-      } else {
-        toast.error(result.message ?? 'Processing failed');
-      }
-      return result;
-    } catch (err) {
-      toast.dismiss(loadingId);
-      toast.error(err instanceof Error ? err.message : 'Upload failed');
-      return { status: 'error', message: 'Upload failed', count: 0 };
-    }
-  };
-
-  const handleCCBulkUpload = async (files: File[]) => {
-    const loadingId = toast.loading(`Processing ${files.length} card statements...`);
-    try {
-      const result = await uploadStatementsBulk(files, undefined, undefined, 'CC');
-      toast.dismiss(loadingId);
-      notifyBulkUploadToasts(result, toast);
-      return result;
-    } catch (err) {
-      toast.dismiss(loadingId);
-      toast.error(err instanceof Error ? err.message : 'Bulk upload failed');
-      return syntheticBulkUploadFailure(files.length);
-    }
-  };
-
-  const handleBankUpload = async (file: File, password?: string) => {
-    const loadingId = toast.loading('Processing bank statement...');
-    try {
-      const result = await uploadStatement(file, undefined, password, 'BANK');
-      toast.dismiss(loadingId);
-      if (result.status === 'success') {
-        toast.success(`${result.count ?? 0} transactions imported from ${(result.bank ?? '').toUpperCase()} bank statement`);
-      } else if (result.status === 'duplicate') {
-        toast.info(result.message ?? 'Statement already imported');
-      } else {
-        toast.error(result.message ?? 'Processing failed');
-      }
-      return result;
-    } catch (err) {
-      toast.dismiss(loadingId);
-      toast.error(err instanceof Error ? err.message : 'Upload failed');
-      return { status: 'error', message: 'Upload failed', count: 0 };
-    }
-  };
-
-  const handleBankBulkUpload = async (files: File[]) => {
-    const loadingId = toast.loading(`Processing ${files.length} bank statements...`);
-    try {
-      const result = await uploadStatementsBulk(files, undefined, undefined, 'BANK');
-      toast.dismiss(loadingId);
-      notifyBulkUploadToasts(result, toast);
-      return result;
-    } catch (err) {
-      toast.dismiss(loadingId);
-      toast.error(err instanceof Error ? err.message : 'Bulk upload failed');
-      return syntheticBulkUploadFailure(files.length);
-    }
-  };
-
   return (
     <PageLayout>
       <Navbar activeTab="customize" onTabChange={(tab) => navigate(`/${tab}`)} />
       <Content>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 32 }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <CreditCard size={18} color={colorPalette.rss[500]} />
-              <Typography fontType={FontType.BODY} fontSize={14} fontWeight={FontWeights.SEMI_BOLD} color={mainColors.white}>
-                Drop Card Statement PDFs
-              </Typography>
-            </div>
-            <StatUpload onUpload={handleCCUpload} onBulkUpload={handleCCBulkUpload} compact />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Landmark size={18} color={colorPalette.info[500]} />
-              <Typography fontType={FontType.BODY} fontSize={14} fontWeight={FontWeights.SEMI_BOLD} color={mainColors.white}>
-                Drop Bank Statement CSVs
-              </Typography>
-            </div>
-            <StatUpload
-              onUpload={handleBankUpload}
-              onBulkUpload={handleBankBulkUpload}
-              compact
-              acceptTypes={{ 'text/csv': ['.csv'] }}
-              idleText="Drop Bank Statement CSVs"
-              subtitleText="CSV files — drop multiple for bulk import"
-            />
-          </div>
-        </div>
-
         <CardsGrid>
           <FeatureCard onClick={() => setGmailModalOpen(true)}>
             <Mail size={24} color={colorPalette.info[500]} />

@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Typography, Tag } from '@cred/neopop-web/lib/components';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
@@ -8,6 +7,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { Transaction } from '@/lib/types';
 import { CATEGORY_CONFIG, BANK_CONFIG } from '@/lib/types';
 import { updateTransactionTags, getAllCategories, getTagDefinitions } from '@/lib/api';
+import { SelectDropdown, type SelectDropdownOption } from '@/components/SelectDropdown';
 import {
   UtensilsCrossed,
   ShoppingBag,
@@ -90,11 +90,8 @@ interface TransactionRowProps {
 
 export function TransactionRow({ transaction, className, exclusionMode, isExcluded, onToggleExclude }: TransactionRowProps) {
   const [tags, setTags] = useState<string[]>(transaction.tags ?? []);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [catMap, setCatMap] = useState<Record<string, { name: string; color: string; icon: string }>>({});
   const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const tagBtnRef = useRef<HTMLSpanElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,20 +113,19 @@ export function TransactionRow({ transaction, className, exclusionMode, isExclud
     setTags(transaction.tags ?? []);
   }, [transaction.id, transaction.tags?.join(',')]);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-        tagBtnRef.current && !tagBtnRef.current.contains(e.target as Node)
-      ) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [dropdownOpen]);
+  const tagOptions = useMemo<SelectDropdownOption[]>(
+    () => availableTags.map((name) => ({ value: name, label: name })),
+    [availableTags],
+  );
+
+  const handleTagSelectionChange = useCallback(
+    (next: string[]) => {
+      const prev = tags;
+      setTags(next);
+      updateTransactionTags(transaction.id, next).catch(() => setTags(prev));
+    },
+    [tags, transaction.id],
+  );
 
   const dynamicCat = catMap[transaction.category];
   const catColor = dynamicCat?.color ?? CATEGORY_CONFIG[transaction.category]?.color ?? colorPalette.black[50];
@@ -210,93 +206,38 @@ export function TransactionRow({ transaction, className, exclusionMode, isExclud
             </div>
           )}
           <TagBtn style={{ position: 'relative' }}>
-            <span
-              ref={tagBtnRef}
-              onClick={(e) => {
-                e.stopPropagation();
-                setDropdownOpen(!dropdownOpen);
+            <SelectDropdown
+              selectionMode="multi"
+              options={tagOptions}
+              selectedValues={tags}
+              onSelectedValuesChange={handleTagSelectionChange}
+              maxSelected={3}
+              staticTriggerLabel="Tag Transaction ▾"
+              placeholder="Tag Transaction ▾"
+              menuMount="portal"
+              menuMinWidth={140}
+              menuMaxHeight={200}
+              menuOffset={4}
+              menuBackgroundColor={colorPalette.popBlack[300]}
+              colorConfig={{
+                border: 'rgba(255,255,255,0.15)',
+                text: 'rgba(255,255,255,0.5)',
+                chevron: 'rgba(255,255,255,0.5)',
               }}
-              style={{
-                padding: '1px 8px 1px 8px',
-                borderRadius: 0,
-                border: '1px solid rgba(255,255,255,0.15)',
-                cursor: 'pointer',
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                position: 'relative',
-              }}
-            >
-              <Typography as="span" fontType={FontType.BODY} fontSize={11} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
-                Tag Transaction ▾
-              </Typography>
-            </span>
-            {dropdownOpen && createPortal(
-              <div
-                ref={dropdownRef}
-                style={{
-                  position: 'fixed',
-                  top: (tagBtnRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
-                  left: tagBtnRef.current?.getBoundingClientRect().left ?? 0,
-                  background: colorPalette.popBlack[300],
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  borderRadius: 8,
-                  padding: availableTags.length > 0 ? 4 : '10px 14px',
-                  zIndex: 9999,
-                  minWidth: 140,
-                  maxHeight: 200,
-                  overflow: 'auto',
-                }}
-              >
-                {availableTags.length > 0 ? (
-                  availableTags.map((tagName) => {
-                    const isSelected = tags.includes(tagName);
-                    const disabled = !isSelected && tags.length >= 3;
-                    return (
-                      <div
-                        key={tagName}
-                        onClick={() => {
-                          if (disabled) return;
-                          const newTags = isSelected
-                            ? tags.filter((t) => t !== tagName)
-                            : [...tags, tagName];
-                          setTags(newTags);
-                          updateTransactionTags(transaction.id, newTags).catch(() => setTags(tags));
-                        }}
-                        style={{
-                          padding: '6px 10px',
-                          cursor: disabled ? 'not-allowed' : 'pointer',
-                          borderRadius: 4,
-                          backgroundColor: isSelected ? 'rgba(255,135,68,0.15)' : 'transparent',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        <Typography
-                          as="span"
-                          fontType={FontType.BODY}
-                          fontSize={12}
-                          fontWeight={FontWeights.REGULAR}
-                          color={disabled ? 'rgba(255,255,255,0.3)' : mainColors.white}
-                        >
-                          {isSelected ? '✓ ' : ''}{tagName}
-                        </Typography>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <Typography
-                    fontType={FontType.BODY}
-                    fontSize={12}
-                    fontWeight={FontWeights.REGULAR}
-                    color="rgba(255,255,255,0.5)"
-                    style={{ maxWidth: 180, lineHeight: '1.4' }}
-                  >
-                    You need to define tags on the Customize page first in order to use them.
-                  </Typography>
-                )}
-              </div>,
-              document.body
-            )}
+              emptyMenuContent={
+                <Typography
+                  fontType={FontType.BODY}
+                  fontSize={12}
+                  fontWeight={FontWeights.REGULAR}
+                  color="rgba(255,255,255,0.5)"
+                  style={{ maxWidth: 180, lineHeight: '1.4' }}
+                >
+                  You need to define tags on the Customize page first in order to use them.
+                </Typography>
+              }
+              onRootMouseDown={(e) => e.stopPropagation()}
+              ariaLabel="Tag transaction"
+            />
           </TagBtn>
         </div>
 

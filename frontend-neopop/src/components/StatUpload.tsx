@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, CheckCircle2, AlertCircle, Loader2, Lock, Files, FolderOpen } from 'lucide-react';
 import { Button, Typography, InputField } from '@cred/neopop-web/lib/components';
@@ -8,6 +8,7 @@ import { BulkUploadSummaryModal } from '@/components/BulkUploadSummaryCard';
 import type { BulkUploadResult } from '@/lib/api';
 import { filesFromDataTransfer } from '@/lib/filesFromDataTransfer';
 import { describeAllowedFileKinds, filterFilesByAcceptTypes } from '@/lib/statUploadFilter';
+import { canUseDirectoryPicker, filesFromDirectoryHandle } from '@/lib/filesFromDirectoryHandle';
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error' | 'password_needed';
 
@@ -23,6 +24,8 @@ const DEFAULT_ACCEPT_TYPES: Record<string, string[]> = { 'application/pdf': ['.p
 interface StatUploadProps {
   onUpload?: (file: File, password?: string) => Promise<UploadResult>;
   onBulkUpload?: (files: File[]) => Promise<BulkUploadResult>;
+  /** Runs after the user closes the bulk summary modal (backdrop or Dismiss). Use to refresh data or navigate. */
+  onBulkUploadSummaryDismissed?: (result: BulkUploadResult) => void;
   className?: string;
   compact?: boolean;
   acceptTypes?: Record<string, string[]>;
@@ -32,23 +35,47 @@ interface StatUploadProps {
 
 async function filesFromDropzoneEvent(event: unknown): Promise<File[]> {
   if (!event || typeof event !== 'object' || Array.isArray(event)) return [];
+
+  const withTarget = event as { target?: EventTarget | null };
+  if (withTarget.target && 'files' in withTarget.target && withTarget.target.files) {
+    return Array.from((withTarget.target as HTMLInputElement).files ?? []);
+  }
+
   const drag = event as React.DragEvent<HTMLElement> | globalThis.DragEvent;
   const dt = 'dataTransfer' in drag ? drag.dataTransfer : null;
-  if (!dt) return [];
-  return filesFromDataTransfer({ dataTransfer: dt });
+  if (dt) return filesFromDataTransfer({ dataTransfer: dt });
+
+  return [];
 }
 
-export function StatUpload({ onUpload, onBulkUpload, className, compact = false, acceptTypes, idleText, subtitleText }: StatUploadProps) {
+export function StatUpload({
+  onUpload,
+  onBulkUpload,
+  onBulkUploadSummaryDismissed,
+  className,
+  compact = false,
+  acceptTypes,
+  idleText,
+  subtitleText,
+}: StatUploadProps) {
   const [status, setStatus] = useState<UploadStatus>('idle');
   const [fileName, setFileName] = useState<string>('');
   const [resultMessage, setResultMessage] = useState<string>('');
   const [password, setPassword] = useState('');
   const [bulkSummary, setBulkSummary] = useState<BulkUploadResult | null>(null);
+  const bulkSummaryRef = useRef<BulkUploadResult | null>(null);
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const pendingFile = useRef<File | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+  const [folderPickSession, setFolderPickSession] = useState<{ files: File[] } | null>(null);
+
+  bulkSummaryRef.current = bulkSummary;
 
   const resolvedAccept = acceptTypes ?? DEFAULT_ACCEPT_TYPES;
+
+  useEffect(() => {
+    if (status !== 'idle') setFolderPickSession(null);
+  }, [status]);
 
   const doUpload = useCallback(
     async (file: File, pwd?: string) => {
@@ -173,19 +200,22 @@ export function StatUpload({ onUpload, onBulkUpload, className, compact = false,
       setPassword('');
       pendingFile.current = null;
 
-      if (accepted.length > 1 && onBulkUpload) {
+      // Match folder-picker behaviour: any bulk-capable drop (including a single file)
+      // uses the bulk API so the summary modal always runs after processing.
+      if (onBulkUpload) {
         doBulkUpload(accepted);
-      } else {
-        const file = accepted[0];
-        setFileName(file.name);
-        doUpload(file);
+        return;
       }
+      const file = accepted[0];
+      setFileName(file.name);
+      doUpload(file);
     },
     [doUpload, doBulkUpload, onBulkUpload]
   );
 
   const onFolderDrop = useCallback(
     (accepted: File[]) => {
+      setFolderPickSession(null);
       if (accepted.length === 0) {
         const kinds = describeAllowedFileKinds(resolvedAccept);
         setStatus('error');
@@ -206,12 +236,14 @@ export function StatUpload({ onUpload, onBulkUpload, className, compact = false,
     accept: resolvedAccept,
     multiple: true,
     disabled: dropDisabled,
+    getFilesFromEvent: filesFromDropzoneEvent,
   });
 
   const { getRootProps: getFolderRootProps, getInputProps: getFolderDropInputProps, isDragActive: folderDragActive } = useDropzone({
     onDrop: onFolderDrop,
     multiple: true,
     noClick: true,
+    noKeyboard: true,
     disabled: dropDisabled || !onBulkUpload,
     getFilesFromEvent: filesFromDropzoneEvent,
   });
@@ -222,26 +254,67 @@ export function StatUpload({ onUpload, onBulkUpload, className, compact = false,
     }
   }, [doUpload, password]);
 
-  const handleChooseFolderClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
+  const pickFolderViaPicker = useCallback(async () => {
+    if (dropDisabled || !onBulkUpload) return;
+    if (canUseDirectoryPicker()) {
+      try {
+        const handle = await window.showDirectoryPicker();
+        const picked = await filesFromDirectoryHandle(handle);
+        if (picked.length === 0) return;
+        setFolderPickSession((prev) => ({
+          files: [...(prev?.files ?? []), ...picked],
+        }));
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        const kinds = describeAllowedFileKinds(resolvedAccept);
+        setStatus('error');
+        setResultMessage(err instanceof Error ? err.message : `Could not read folder — try drag-and-drop or pick ${kinds} files`);
+        setFileName('');
+        setTimeout(() => setStatus('idle'), 5000);
+      }
+      return;
+    }
     folderInputRef.current?.click();
-  }, []);
+  }, [dropDisabled, onBulkUpload, resolvedAccept]);
+
+  const openFolderPicker = useCallback(() => {
+    if (dropDisabled || !onBulkUpload) return;
+    void pickFolderViaPicker();
+  }, [dropDisabled, onBulkUpload, pickFolderViaPicker]);
 
   const handleFolderInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const list = e.target.files;
       e.target.value = '';
       if (!list?.length || !onBulkUpload) return;
-      handleFolderSideFiles(Array.from(list));
+      setFolderPickSession((prev) => ({
+        files: [...(prev?.files ?? []), ...Array.from(list)],
+      }));
     },
-    [handleFolderSideFiles, onBulkUpload]
+    [onBulkUpload]
   );
 
+  const flushFolderPickSession = useCallback(() => {
+    const files = folderPickSession?.files;
+    if (!files?.length) return;
+    handleFolderSideFiles([...files]);
+    setFolderPickSession(null);
+  }, [folderPickSession, handleFolderSideFiles]);
+
+  const clearFolderPickSession = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFolderPickSession(null);
+  }, []);
+
   const dismissSummary = useCallback(() => {
+    const result = bulkSummaryRef.current;
     setSummaryModalOpen(false);
     setBulkSummary(null);
-  }, []);
+    bulkSummaryRef.current = null;
+    if (result) {
+      onBulkUploadSummaryDismissed?.(result);
+    }
+  }, [onBulkUploadSummaryDismissed]);
 
   if (status === 'password_needed') {
     return (
@@ -338,23 +411,6 @@ export function StatUpload({ onUpload, onBulkUpload, className, compact = false,
   const dropzoneMinHeight = showDualDropzones ? (compact ? 140 : 200) : compact ? 120 : 180;
   const zonePadding = compact ? 12 : 24;
 
-  const folderRootFromDropzone = getFolderRootProps();
-  const folderRootHtml = folderRootFromDropzone as React.HTMLAttributes<HTMLElement>;
-  const folderRootProps = {
-    ...folderRootFromDropzone,
-    onClick: (e: React.MouseEvent<HTMLElement>) => {
-      handleChooseFolderClick(e);
-      folderRootHtml.onClick?.(e);
-    },
-    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
-      folderRootHtml.onKeyDown?.(e);
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        folderInputRef.current?.click();
-      }
-    },
-  };
-
   const renderStatusBody = () => (
     <>
       <StatusIcon
@@ -421,7 +477,7 @@ export function StatUpload({ onUpload, onBulkUpload, className, compact = false,
             </Typography>
           </div>
           <div
-            {...folderRootProps}
+            {...getFolderRootProps()}
             style={{
               flex: 1,
               minWidth: 0,
@@ -431,19 +487,37 @@ export function StatUpload({ onUpload, onBulkUpload, className, compact = false,
               alignItems: 'center',
               justifyContent: 'center',
               textAlign: 'center',
-              cursor: dropDisabled ? 'not-allowed' : 'pointer',
+              cursor:
+                dropDisabled ? 'not-allowed' : folderPickSession ? 'default' : 'pointer',
               backgroundColor: folderDragActive ? 'rgba(255,135,68,0.08)' : 'transparent',
+              position: 'relative',
+              gap: compact ? 8 : 10,
             }}
-            role="button"
-            tabIndex={dropDisabled ? -1 : 0}
-            aria-label="Upload statements from a folder"
+            role={folderPickSession ? 'group' : 'button'}
+            tabIndex={dropDisabled || folderPickSession ? -1 : 0}
+            aria-label={
+              folderPickSession
+                ? 'Folder upload queue'
+                : 'Upload statements from one or more folders'
+            }
+            onClick={folderPickSession ? undefined : openFolderPicker}
+            onKeyDown={(e: React.KeyboardEvent<HTMLElement>) => {
+              if (dropDisabled || !onBulkUpload || folderPickSession) return;
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              void pickFolderViaPicker();
+            }}
           >
-            <input {...getFolderDropInputProps()} tabIndex={-1} style={{ display: 'none' }} />
+            <input
+              {...getFolderDropInputProps()}
+              tabIndex={-1}
+              style={{ display: 'none', pointerEvents: 'none' }}
+            />
             <input
               ref={folderInputRef}
               type="file"
               multiple
-              style={{ display: 'none' }}
+              style={{ display: 'none', pointerEvents: 'none' }}
               onChange={handleFolderInputChange}
               tabIndex={-1}
               aria-hidden
@@ -452,13 +526,87 @@ export function StatUpload({ onUpload, onBulkUpload, className, compact = false,
                 directory: '',
               } as Record<string, string>)}
             />
-            <FolderOpen size={compact ? 22 : 28} color="rgba(255,255,255,0.5)" style={{ marginBottom: 8 }} />
-            <Typography fontType={FontType.BODY} fontSize={compact ? 12 : 13} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.75)" style={{ margin: 0 }}>
-              {compact ? 'Folder' : 'Drop a folder or click to choose'}
-            </Typography>
-            <Typography fontType={FontType.BODY} fontSize={compact ? 10 : 11} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.38)" style={{ marginTop: 4 }}>
-              Scans subfolders for {describeAllowedFileKinds(resolvedAccept)}
-            </Typography>
+            {folderPickSession ? (
+              <>
+                <FolderOpen size={compact ? 22 : 28} color="rgba(255,255,255,0.5)" style={{ marginBottom: 4 }} />
+                <Typography
+                  fontType={FontType.BODY}
+                  fontSize={compact ? 12 : 13}
+                  fontWeight={FontWeights.MEDIUM}
+                  color="rgba(255,255,255,0.85)"
+                  style={{ margin: 0 }}
+                >
+                  {folderPickSession.files.length} file{folderPickSession.files.length === 1 ? '' : 's'} queued
+                </Typography>
+                <Typography
+                  fontType={FontType.BODY}
+                  fontSize={compact ? 10 : 11}
+                  fontWeight={FontWeights.REGULAR}
+                  color="rgba(255,255,255,0.38)"
+                  style={{ margin: 0 }}
+                >
+                  Add more folders, then Upload (only {describeAllowedFileKinds(resolvedAccept)} are imported)
+                </Typography>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    justifyContent: 'center',
+                    marginTop: 4,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    kind="elevated"
+                    colorMode="dark"
+                    size="small"
+                    variant="secondary"
+                    type="button"
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      void pickFolderViaPicker();
+                    }}
+                  >
+                    Add folder
+                  </Button>
+                  <Button
+                    kind="elevated"
+                    colorMode="dark"
+                    size="small"
+                    type="button"
+                    onClick={(e: React.MouseEvent) => {
+                      e.stopPropagation();
+                      flushFolderPickSession();
+                    }}
+                  >
+                    Upload
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    kind="elevated"
+                    colorMode="dark"
+                    size="small"
+                    type="button"
+                    onClick={clearFolderPickSession}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <FolderOpen size={compact ? 22 : 28} color="rgba(255,255,255,0.5)" style={{ marginBottom: 8 }} />
+                <Typography fontType={FontType.BODY} fontSize={compact ? 12 : 13} fontWeight={FontWeights.MEDIUM} color="rgba(255,255,255,0.75)" style={{ margin: 0 }}>
+                  {compact ? 'Folder' : 'Drop folders or click to choose'}
+                </Typography>
+                <Typography fontType={FontType.BODY} fontSize={compact ? 10 : 11} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.38)" style={{ marginTop: 4 }}>
+                  Pick folders one at a time (each dialog is one folder), then Upload — scans subfolders for{' '}
+                  {describeAllowedFileKinds(resolvedAccept)}
+                </Typography>
+              </>
+            )}
           </div>
         </div>
       ) : (
