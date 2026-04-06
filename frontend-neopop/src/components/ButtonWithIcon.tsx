@@ -1,4 +1,4 @@
-import { Button, Row, Typography } from '@cred/neopop-web/lib/components';
+import { Button, Column, Row, Typography } from '@cred/neopop-web/lib/components';
 import type { ComponentPropsWithoutRef, CSSProperties } from 'react';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import type { LucideIcon } from 'lucide-react';
@@ -96,7 +96,11 @@ export function ButtonWithIcon({
         style={rowStyle}
         data-bwi-gap={gap}
       >
-        <Icon size={iconSize} aria-hidden {...iconProps} />
+        <Column>
+          
+          <Icon size={iconSize} aria-hidden {...iconProps} />
+        </Column>
+        {/* <Icon size={iconSize} aria-hidden {...iconProps} /> */}
         <Typography
           as={as}
           fontType={fontType}

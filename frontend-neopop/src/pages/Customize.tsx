@@ -29,10 +29,11 @@ import {
 import type { Statement } from '@/lib/types';
 import type { CategoryResponse, TagDefinitionResponse, GmailStatusResponse } from '@/lib/api';
 import { toast } from '@/components/Toast';
-import { RefreshCw, Palette, Trash2, Tag as TagIcon, Plus, AlertTriangle, MessageSquarePlus, Lock, Mail } from 'lucide-react';
+import { RefreshCw, Palette, Trash2, Tag as TagIcon, Check, AlertTriangle, MessageSquarePlus, Lock, Mail } from 'lucide-react';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { CloseButton } from '@/components/CloseButton';
 import { TrashIconButton } from '@/components/TrashIconButton';
+import { PlusIconButton } from '@/components/PlusIconButton';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import styled from 'styled-components';
 
@@ -774,7 +775,7 @@ function ColorPickerPopover({
     const rect = anchor.getBoundingClientRect();
     const panel = popoverPanelRef.current;
     const pad = 8;
-    const h = panel?.offsetHeight ?? Math.min(520, window.innerHeight * 0.78);
+    const h = panel?.offsetHeight ?? Math.min(640, window.innerHeight - 24);
     let left = rect.left;
     let top = rect.bottom + pad;
     if (left + COLOR_PICKER_POPOVER_WIDTH > window.innerWidth - pad) {
@@ -925,8 +926,10 @@ function ColorPickerPopover({
           left: fixedPos.left,
           zIndex: COLOR_PICKER_LAYER_Z,
           width: COLOR_PICKER_POPOVER_WIDTH,
-          maxHeight: 'min(520px, 78vh)',
+          maxHeight: 'calc(100vh - 16px)',
+          height: 'fit-content',
           overflowY: 'auto',
+          overflowX: 'hidden',
           background: 'linear-gradient(165deg, rgba(38,38,42,0.98) 0%, rgba(22,22,26,0.99) 100%)',
           border: '1px solid rgba(255,255,255,0.12)',
           borderRadius: 20,
@@ -1009,27 +1012,58 @@ function ColorPickerPopover({
               }}
               aria-hidden
             />
-            <Row alignItems="center" style={{ gap: 8 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <InputField
-                  colorMode="dark"
-                  placeholder="#RRGGBB"
-                  value={hexDraft}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHexDraft(e.target.value)}
-                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && applyHex()}
+            <div>
+              <InputField
+                colorMode="dark"
+                placeholder="#RRGGBB"
+                value={hexDraft}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHexDraft(e.target.value)}
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && applyHex()}
+                style={{
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 13,
+                  backgroundColor: 'rgba(0,0,0,0.35)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  borderRadius: 10,
+                  width: '100%',
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+                <button
+                  type="button"
+                  onClick={applyHex}
+                  aria-label="Apply hex color"
                   style={{
-                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                    fontSize: 13,
-                    backgroundColor: 'rgba(0,0,0,0.35)',
-                    border: '1px solid rgba(255,255,255,0.14)',
-                    borderRadius: 10,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 4,
+                    margin: 0,
+                    border: 'solid 1px rgba(255,255,255,0.14)',
+                    borderRadius: 8,
+                    background: 'transparent',
+                    color: 'rgba(255,255,255,0.85)',
+                    cursor: 'pointer',
+                    transition: 'color 0.15s ease',
+                    outline: 'none',
                   }}
-                />
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = mainColors.white;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.85)';
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.boxShadow = '0 0 0 2px rgba(255, 135, 68, 0.55)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <Check size={22} strokeWidth={2.5} aria-hidden focusable={false} />
+                </button>
               </div>
-              <Button type="button" variant="primary" kind="elevated" size="small" colorMode="dark" onClick={applyHex}>
-                Apply
-              </Button>
-            </Row>
+            </div>
           </div>
         </div>
 
@@ -1173,12 +1207,27 @@ function ColorPickerButton({
   );
 }
 
+type PendingNewCategory = {
+  id: string;
+  name: string;
+  keywords: string;
+  color: string;
+};
+
+function newPendingCategoryRow(): PendingNewCategory {
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `p-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  return { id, name: '', keywords: '', color: colorPalette.rss[500] };
+}
+
 export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [categories, setCategories] = useState<CategoryResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [edits, setEdits] = useState<Record<string, { name?: string; keywords?: string; color?: string }>>({});
-  const [newRow, setNewRow] = useState({ name: '', keywords: '', color: colorPalette.rss[500] });
+  const [pendingNewRows, setPendingNewRows] = useState<PendingNewCategory[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -1201,6 +1250,23 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
   }, [open]);
 
   const customCount = categories.filter((c) => !c.is_prebuilt).length;
+
+  useEffect(() => {
+    if (!open) return;
+    setEdits({});
+    setPendingNewRows([]);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || loading) return;
+    setPendingNewRows((prev) => {
+      if (customCount >= 20) return [];
+      if (prev.length === 0) return [newPendingCategoryRow()];
+      const maxRows = 20 - customCount;
+      if (prev.length > maxRows) return prev.slice(0, maxRows);
+      return prev;
+    });
+  }, [open, loading, customCount]);
 
   const handleUpdate = async (cat: CategoryResponse) => {
     const payload = edits[cat.id] ?? {};
@@ -1241,28 +1307,27 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
     }
   };
 
-  const handleAdd = async () => {
-    const name = newRow.name.trim();
-    if (!name) {
-      toast.error('Category name is required');
-      return;
-    }
-    if (customCount >= 20) {
-      toast.error('Maximum 20 custom categories allowed');
-      return;
-    }
-    try {
-      toast.success('Category added. Recategorizing transactions...');
-      const cat = await createCategory({
-        name,
-        keywords: newRow.keywords.trim(),
-        color: newRow.color,
-      });
-      setCategories((prev) => [...prev, cat].sort((a, b) => (a.is_prebuilt === b.is_prebuilt ? 0 : a.is_prebuilt ? 1 : -1) || a.name.localeCompare(b.name)));
-      setNewRow({ name: '', keywords: '', color: colorPalette.rss[500] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add category');
-    }
+  const maxPendingNewRows = Math.max(0, 20 - customCount);
+  const canAddPendingRow = pendingNewRows.length < maxPendingNewRows;
+
+  const setPendingField = (id: string, field: keyof Omit<PendingNewCategory, 'id'>, value: string) => {
+    setPendingNewRows((rows) => rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
+  };
+
+  const addPendingRowAfter = (index: number) => {
+    if (!canAddPendingRow) return;
+    setPendingNewRows((rows) => {
+      const row = rows[index];
+      if (!row || !row.name.trim() || !row.keywords.trim()) return rows;
+      const next = [...rows];
+      next.splice(index + 1, 0, newPendingCategoryRow());
+      return next;
+    });
+  };
+
+  const removePendingRow = (index: number) => {
+    if (pendingNewRows.length <= 1) return;
+    setPendingNewRows((rows) => rows.filter((_, i) => i !== index));
   };
 
   const handleDelete = async (cat: CategoryResponse) => {
@@ -1288,13 +1353,46 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
   };
 
   const hasAnyEdits = categories.some((cat) => hasEdit(cat));
+  const hasPendingCreates = pendingNewRows.some((r) => r.name.trim());
 
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      if (newRow.name.trim()) {
-        await handleAdd();
+      const pendingCreates = pendingNewRows.filter((r) => r.name.trim());
+      if (pendingCreates.length > 0) {
+        if (customCount + pendingCreates.length > 20) {
+          toast.error('Maximum 20 custom categories allowed');
+          return;
+        }
+        try {
+          const created: CategoryResponse[] = [];
+          for (const row of pendingCreates) {
+            const cat = await createCategory({
+              name: row.name.trim(),
+              keywords: row.keywords.trim(),
+              color: row.color,
+            });
+            created.push(cat);
+          }
+          setCategories((prev) =>
+            [...prev, ...created].sort(
+              (a, b) =>
+                (a.is_prebuilt === b.is_prebuilt ? 0 : a.is_prebuilt ? 1 : -1) || a.name.localeCompare(b.name),
+            ),
+          );
+          const newCustomCount = customCount + created.length;
+          setPendingNewRows(newCustomCount >= 20 ? [] : [newPendingCategoryRow()]);
+          toast.success(
+            created.length === 1
+              ? 'Category added. Recategorizing transactions...'
+              : `${created.length} categories added. Recategorizing transactions...`,
+          );
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to add category');
+          return;
+        }
       }
+
       const editedCats = categories.filter((cat) => hasEdit(cat));
       for (const cat of editedCats) {
         await handleUpdate(cat);
@@ -1306,7 +1404,7 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
 
   const handleCancel = () => {
     setEdits({});
-    setNewRow({ name: '', keywords: '', color: colorPalette.rss[500] });
+    setPendingNewRows(customCount >= 20 ? [] : [newPendingCategoryRow()]);
     onClose();
   };
 
@@ -1411,45 +1509,55 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
                     </td>
                   </tr>
                 ))}
-                <tr>
-                  <td>
-                    <InputField
-                      colorMode="dark"
-                      placeholder="New category name"
-                      value={newRow.name}
-                      style={{ fontWeight: FontWeights.SEMI_BOLD, fontSize: 16 }}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRow((r) => ({ ...r, name: e.target.value.slice(0, 50) }))}
-                    />
-                  </td>
-                  <td>
-                    <InputField
-                      colorMode="dark"
-                      style={{ fontWeight: FontWeights.SEMI_BOLD, fontSize: 14 }}
-                      placeholder="Keywords (comma-separated)"
-                      value={newRow.keywords}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewRow((r) => ({ ...r, keywords: e.target.value }))}
-                    />
-                  </td>
-                  <td>
-                    <ColorPickerButton
-                      color={newRow.color}
-                      onSelect={(c) => setNewRow((r) => ({ ...r, color: c }))}
-                    />
-                  </td>
-                  <td>
-                    <Button
-                      variant="primary"
-                      kind="elevated"
-                      size="small"
-                      colorMode="dark"
-                      onClick={handleAdd}
-                      disabled={customCount >= 20 || !newRow.name.trim()}
-                      style={{ minWidth: 'auto', marginRight: 10, marginLeft: -40 }}
-                    >
-                      <Plus size={16} />
-                    </Button>
-                  </td>
-                </tr>
+                {customCount < 20 &&
+                  pendingNewRows.map((row, index) => (
+                    <tr key={row.id}>
+                      <td>
+                        <InputField
+                          colorMode="dark"
+                          placeholder="New category name"
+                          value={row.name}
+                          style={{ fontWeight: FontWeights.SEMI_BOLD, fontSize: 16 }}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            setPendingField(row.id, 'name', e.target.value.slice(0, 50))
+                          }
+                        />
+                      </td>
+                      <td>
+                        <InputField
+                          colorMode="dark"
+                          style={{ fontWeight: FontWeights.SEMI_BOLD, fontSize: 14 }}
+                          placeholder="Keywords (comma-separated)"
+                          value={row.keywords}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            setPendingField(row.id, 'keywords', e.target.value)
+                          }
+                        />
+                      </td>
+                      <td>
+                        <ColorPickerButton color={row.color} onSelect={(c) => setPendingField(row.id, 'color', c)} />
+                      </td>
+                      <td>
+                        <Row alignItems="center" gap={6} style={{ marginRight: 10, marginLeft: -20 }}>
+                          {pendingNewRows.length > 1 && (
+                            <TrashIconButton
+                              aria-label="Remove this new category row"
+                              onClick={() => removePendingRow(index)}
+                            />
+                          )}
+                          {index === pendingNewRows.length - 1 && (
+                            <PlusIconButton
+                              aria-label="Add another category row below"
+                              onClick={() => addPendingRowAfter(index)}
+                              disabled={
+                                !canAddPendingRow || !row.name.trim() || !row.keywords.trim()
+                              }
+                            />
+                          )}
+                        </Row>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </CategoryTable>
           )}
@@ -1472,7 +1580,7 @@ export function DefineCategoriesModal({ open, onClose }: { open: boolean; onClos
               size="small"
               colorMode="dark"
               onClick={handleSaveAll}
-              disabled={loading || (!hasAnyEdits && !newRow.name.trim()) || saving}
+              disabled={loading || (!hasAnyEdits && !hasPendingCreates) || saving}
             >
               {saving ? 'Saving...' : 'Update All'}
             </Button>

@@ -212,11 +212,12 @@ export function TransactionRow({ transaction, className, exclusionMode, isExclud
               selectedValues={tags}
               onSelectedValuesChange={handleTagSelectionChange}
               maxSelected={3}
-              staticTriggerLabel="Tag Transaction ▾"
-              placeholder="Tag Transaction ▾"
+              staticTriggerLabel="Tag Transaction"
+              placeholder="Tag Transaction"
               menuMount="portal"
               menuMinWidth={140}
               menuMaxHeight={200}
+              
               menuOffset={4}
               menuBackgroundColor={colorPalette.popBlack[300]}
               colorConfig={{

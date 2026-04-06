@@ -38,7 +38,7 @@ const Content = styled.main`
   margin: 0 auto;
 `;
 
-/** Main statement layout: left column (details) vs right column (actions + path). */
+/** Main statement layout: left column (details) vs right column (actions + optional manual source path). */
 const statementBodyRowStyle: CSSProperties = {
   width: '100%',
   flexWrap: 'wrap',
@@ -129,25 +129,30 @@ const StatementListRow = styled.div<{ $warn: boolean }>`
     `}
 `;
 
-/**
- * Visible label `...<parentFolder>/<file>` and full path for native tooltip (hover).
- */
-function statementPathPreview(
-  filePath: string | null | undefined,
-  fileName: string | null | undefined,
-): { display: string; fullPath: string } {
-  const raw = (filePath ?? '').trim() || (fileName ?? '').trim();
-  if (!raw) return { display: '—', fullPath: '' };
-  const normalized = raw.replace(/\\/g, '/');
-  const segments = normalized.split('/').filter(Boolean);
-  if (segments.length === 0) return { display: raw, fullPath: raw };
-  const fileBase = segments[segments.length - 1]!;
-  if (segments.length === 1) {
-    // No parent path to truncate; tooltip matches the only string we have.
-    return { display: fileBase, fullPath: raw };
-  }
-  const folder = segments[segments.length - 2]!;
-  return { display: `...${folder}/${fileBase}`, fullPath: raw };
+/** Client filesystem path for manual uploads only; omitted for folder-watcher imports. */
+function manualUploadOriginalPathLine(s: Statement) {
+  const raw = (s.originalUploadPath ?? '').trim();
+  if (!raw) return null;
+  return (
+    <Typography
+      as="span"
+      aria-label={`Original file path: ${raw}`}
+      fontType={FontType.BODY}
+      fontSize={11}
+      fontWeight={FontWeights.REGULAR}
+      color="rgba(255,255,255,0.45)"
+      style={{
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
+        wordBreak: 'break-all',
+        lineHeight: 1.4,
+        textAlign: 'right',
+        display: 'block',
+        maxWidth: 340,
+      }}
+    >
+      {raw}
+    </Typography>
+  );
 }
 
 function statementSortPriority(s: Statement): number {
@@ -162,86 +167,6 @@ function bankRowMeta(s: Statement) {
     color: '#6B7280',
   };
   return cfg;
-}
-
-function StatementPathHover({ display, fullPath }: { display: string; fullPath: string }) {
-  const [open, setOpen] = useState(false);
-  const tip = fullPath.trim();
-  if (!tip) {
-    return (
-      <Typography
-        as="span"
-        fontType={FontType.BODY}
-        fontSize={11}
-        fontWeight={FontWeights.REGULAR}
-        color="rgba(255,255,255,0.45)"
-        style={{
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
-          wordBreak: 'break-all',
-          lineHeight: 1.4,
-          textAlign: 'right',
-          display: 'block',
-          maxWidth: 340,
-        }}
-      >
-        {display}
-      </Typography>
-    );
-  }
-  return (
-    <span
-      style={{ position: 'relative', display: 'block', maxWidth: 340, alignSelf: 'stretch' }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <Typography
-        as="span"
-        aria-label={`Full path: ${tip}`}
-        fontType={FontType.BODY}
-        fontSize={11}
-        fontWeight={FontWeights.REGULAR}
-        color="rgba(255,255,255,0.45)"
-        style={{
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
-          wordBreak: 'break-all',
-          lineHeight: 1.4,
-          textAlign: 'right',
-          display: 'block',
-          cursor: 'help',
-        }}
-      >
-        {display}
-      </Typography>
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '100%',
-            right: 0,
-            marginTop: 8,
-            zIndex: 400,
-            maxWidth: 'min(560px, 92vw)',
-            padding: '10px 12px',
-            background: colorPalette.popBlack[300],
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: 8,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-            pointerEvents: 'none',
-          }}
-        >
-          <Typography
-            fontType={FontType.BODY}
-            fontSize={11}
-            fontWeight={FontWeights.REGULAR}
-            color="rgba(255,255,255,0.85)"
-            style={{ wordBreak: 'break-all', fontFamily: 'ui-monospace, Menlo, Monaco, monospace' }}
-          >
-            {fullPath}
-          </Typography>
-        </div>
-      )}
-    </span>
-  );
 }
 
 export function Statements() {
@@ -491,12 +416,6 @@ export function Statements() {
     }
   };
 
-  const filePathLine = (s: Statement) => {
-    const pathForUi = s.displayPath ?? s.filePath;
-    const { display, fullPath } = statementPathPreview(pathForUi, s.fileName);
-    return <StatementPathHover display={display} fullPath={fullPath} />;
-  };
-
   const periodLine = (s: Statement) => (
     <Typography fontType={FontType.BODY} fontSize={12} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
       {s.periodStart && s.periodEnd ? `${fmt(s.periodStart)} – ${fmt(s.periodEnd)}` : '—'}
@@ -699,7 +618,7 @@ export function Statements() {
                             Unlock
                           </Button>
                         </Row>
-                        {filePathLine(s)}
+                        {manualUploadOriginalPathLine(s)}
                       </Column>
                     </Row>
                   ) : isError ? (
@@ -782,7 +701,7 @@ export function Statements() {
                             Remove
                           </ButtonWithIcon>
                         </Row>
-                        {filePathLine(s)}
+                        {manualUploadOriginalPathLine(s)}
                       </Column>
                     </Row>
                   ) : (
@@ -862,7 +781,7 @@ export function Statements() {
                               Remove
                             </ButtonWithIcon>
                           </Row>
-                          {filePathLine(s)}
+                          {manualUploadOriginalPathLine(s)}
                         </Column>
                       </Row>
                     </div>

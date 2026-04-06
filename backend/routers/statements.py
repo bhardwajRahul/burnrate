@@ -403,6 +403,7 @@ def list_statements(
                 "file_path": fp,
                 "file_name": os.path.basename(fp) if fp else None,
                 "display_path": statement_display_path(fp, orig),
+                "original_upload_path": orig,
                 "status_message": getattr(s, "status_message", None),
             }
         )

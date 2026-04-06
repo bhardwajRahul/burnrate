@@ -44,6 +44,8 @@ export interface Statement {
   fileName?: string | null;
   /** Path for UI (client/original path for manual uploads; watch path otherwise). */
   displayPath?: string | null;
+  /** Client filesystem path from manual upload only; null for folder watcher imports. */
+  originalUploadPath?: string | null;
   /** Persisted parse failure text when status is parse_error. */
   statusMessage?: string | null;
 }

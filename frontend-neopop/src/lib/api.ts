@@ -345,6 +345,7 @@ interface StatementRaw {
   file_path?: string | null;
   file_name?: string | null;
   display_path?: string | null;
+  original_upload_path?: string | null;
   status_message?: string | null;
 }
 
@@ -382,6 +383,7 @@ export async function getStatements(params?: Source | GetStatementsParams): Prom
     filePath: s.file_path ?? null,
     fileName: s.file_name ?? null,
     displayPath: s.display_path ?? null,
+    originalUploadPath: s.original_upload_path ?? null,
     statusMessage: s.status_message ?? null,
   }));
 }
