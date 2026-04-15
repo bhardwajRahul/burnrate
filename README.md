@@ -15,6 +15,7 @@ Burnrate is a personal finance app that keeps imported **statements and transact
 - **Bank account statements (CSV)** — Import savings/current account CSVs from major Indian banks (HDFC, ICICI, SBI, Axis, plus a generic auto-detect parser). Statements and transactions carry a **CC** vs **BANK** source so you can filter and review them separately. Credit card bill payments on bank statements are excluded from spend totals so they are not double-counted with card-side payments.
 - **Statements hub** — Browse imported statements (card and bank), filter by bank and period, and manage uploads from one place
 - **Offers & benefits** — Offers are fetched from public bank and aggregator pages, normalized, cached locally, and shown in a searchable catalog. Highlight offers that match your cards, hide noise, add your own manual offers, and refresh on demand. Always verify details with your issuer before relying on an offer.
+- **Spending milestones** — Track progress toward fee waivers, bonus points, lounge access, and other card benefits. Set custom goals or sync predefined milestones from bank definitions. Filter by card and see how much more you need to spend to reach each milestone.
 - **Gmail statement autosync (optional)** — Opt in to read-only Gmail OAuth (PKCE). Matching statement attachments (PDF, CSV, XLS/XLSX) are saved to your watch folder or default uploads and processed like manual drops. Configure OAuth in the backend; connect from **Customize** and monitor sync from the navbar.
 - **Smart categorization** — Transactions auto-categorized with customizable categories and keywords
 - **Rich analytics** — Spend trends, category breakdowns, merchant insights, credit utilization
@@ -110,21 +111,17 @@ Open http://localhost:5173 in your browser.
 
 ## Screenshots
 
-| Dashboard | Transactions |
-|-----------|-------------|
-| ![](assets/screenshot_dashboard.png) | ![](assets/screenshot_transactions.png) |
+| Dashboard | Transactions | Analytics |
+|-----------|--------------|-----------|
+| ![](assets/screenshot_dashboard.png) | ![](assets/screenshot_transactions.png) | ![](assets/screenshot_analytics.png) |
 
-| Analytics | Cards |
-|-----------|-------|
-| ![](assets/screenshot_analytics.png) | ![](assets/screenshot_cards.png) |
+| Cards | Offers | Milestones |
+|-------|--------|------------|
+| ![](assets/screenshot_cards.png) | ![](assets/screenshot_offers.png) | ![](assets/screenshot_milestones.png) |
 
-| Customize | Categories |
-|-----------|-----------|
-| ![](assets/screenshot_customize.png) | ![](assets/screenshot_categories_modal.png) |
-
-| Setup |
-|-------|
-| ![](assets/screenshot_setup.png) |
+| Customize | Categories | Setup |
+|-----------|------------|-------|
+| ![](assets/screenshot_customize.png) | ![](assets/screenshot_categories_modal.png) | ![](assets/screenshot_setup.png) |
 
 ## Tech Stack
 

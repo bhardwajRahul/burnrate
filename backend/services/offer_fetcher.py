@@ -5,7 +5,9 @@ Each provider is isolated: failures in one don't affect others.
 """
 
 import hashlib
+import html as html_module
 import logging
+import re
 import time
 from abc import ABC, abstractmethod
 from datetime import date, datetime
@@ -15,6 +17,8 @@ import httpx
 from sqlalchemy.orm import Session
 
 from backend.config import (
+    CARDEXPERT_BANK_CATEGORIES,
+    CARDEXPERT_OFFERS_CATEGORY,
     OFFER_PROVIDERS,
     OFFER_REQUEST_DELAY,
     OFFER_REQUEST_TIMEOUT,
@@ -313,12 +317,106 @@ class CardExpertProvider(BaseOfferProvider):
         return offers
 
 
+class CardExpertAPIProvider(BaseOfferProvider):
+    """Fetches Indian bank credit card offers via cardexpert.in WordPress REST API.
+
+    Uses per-bank WP category IDs for precise filtering, plus the general "Card Offers"
+    category for cross-bank and unlisted-bank offers. Returns structured JSON — no HTML
+    parsing needed, which makes this far more reliable than scraping JS-rendered bank sites.
+    """
+
+    def provider_id(self) -> str:
+        return "cardexpert_api"
+
+    def fetch_offers(self, client: httpx.Client) -> List[RawOffer]:
+        base_url = OFFER_PROVIDERS["cardexpert_api"]["url"]
+        per_page = OFFER_PROVIDERS["cardexpert_api"].get("per_page", 20)
+        offers: List[RawOffer] = []
+        seen_ids: set = set()
+
+        def _fetch_category(category_ids: List[int], bank: Optional[str]) -> None:
+            cat_param = ",".join(str(c) for c in category_ids)
+            params = {
+                "categories": cat_param,
+                "per_page": per_page,
+                "_fields": "id,title,excerpt,link,date",
+                "orderby": "date",
+                "order": "desc",
+            }
+            try:
+                resp = client.get(base_url, params=params, timeout=OFFER_REQUEST_TIMEOUT)
+                resp.raise_for_status()
+                posts = resp.json()
+            except Exception:
+                logger.warning("CardExpert API fetch failed for cats=%s", cat_param, exc_info=True)
+                return
+
+            for post in posts:
+                post_id = post.get("id")
+                if post_id in seen_ids:
+                    continue
+                seen_ids.add(post_id)
+
+                raw_title = post.get("title", {}).get("rendered", "")
+                title = _strip_html(raw_title)
+                if not title or len(title) < 5:
+                    continue
+
+                raw_excerpt = post.get("excerpt", {}).get("rendered", "")
+                desc = _strip_html(raw_excerpt) or None
+
+                link = post.get("link", "")
+                source_id = hashlib.md5(f"ce_api:{post_id}".encode()).hexdigest()
+                detected_bank = bank or _detect_bank_from_text(title + " " + (desc or ""))
+
+                offers.append(RawOffer(
+                    title=title[:512],
+                    source_id=source_id,
+                    description=desc[:2000] if desc else None,
+                    bank=detected_bank,
+                    source_url=link,
+                    offer_type="discount",
+                    category=_guess_category(title, desc),
+                ))
+
+        # Per-bank category fetches (one sleep between each to be polite)
+        for bank_slug, cat_ids in CARDEXPERT_BANK_CATEGORIES.items():
+            _fetch_category(cat_ids, bank_slug)
+            time.sleep(OFFER_REQUEST_DELAY)
+
+        # General "Card Offers" category — catches cross-bank and unlisted-bank offers
+        _fetch_category([CARDEXPERT_OFFERS_CATEGORY], None)
+
+        return offers
+
+
+def _strip_html(text: str) -> str:
+    """Remove HTML tags and decode HTML entities."""
+    text = re.sub(r"<[^>]+>", "", text)
+    return html_module.unescape(text).strip()
+
+
 def _detect_bank_from_text(text: str) -> Optional[str]:
     """Try to detect bank from text content."""
     text_lower = text.lower()
-    for bank in ["hdfc", "icici", "axis", "sbi", "amex", "idfc", "indusind", "kotak", "federal"]:
-        if bank in text_lower:
-            return bank
+    patterns = [
+        ("hdfc",       ["hdfc"]),
+        ("icici",      ["icici"]),
+        ("axis",       ["axis bank", "axis credit"]),
+        ("sbi",        ["sbi card", "sbicard", "state bank"]),
+        ("amex",       ["amex", "american express"]),
+        ("idfc_first", ["idfc first", "idfc"]),
+        ("indusind",   ["indusind"]),
+        ("kotak",      ["kotak"]),
+        ("sc",         ["standard chartered"]),
+        ("yes",        ["yes bank"]),
+        ("au",         ["au small finance", "au bank", "au sfb"]),
+        ("rbl",        ["rbl bank"]),
+        ("federal",    ["federal bank"]),
+    ]
+    for slug, keywords in patterns:
+        if any(kw in text_lower for kw in keywords):
+            return slug
     return None
 
 
@@ -343,6 +441,8 @@ def _guess_category(title: str, desc: Optional[str] = None) -> Optional[str]:
 
 # All available providers
 ALL_PROVIDERS: List[BaseOfferProvider] = [
+    CardExpertAPIProvider(),
+    # Legacy scrapers kept for reference but disabled in config (bank sites are JS-rendered)
     HDFCOfferProvider(),
     SBICardOfferProvider(),
     ICICIOfferProvider(),

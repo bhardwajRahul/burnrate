@@ -25,7 +25,8 @@ import { toast } from '@/components/Toast';
 import { notifyBulkUploadToasts, syntheticBulkUploadFailure } from '@/lib/bulkUploadSummary';
 import { Trash2, RefreshCw, AlertTriangle, Lock, SlidersHorizontal } from 'lucide-react';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import styled, { css } from 'styled-components';
+import styled from 'styled-components';
+import { SelectableElevatedCard, DEFAULT_ELEVATED_CARD_EDGE_COLORS } from '@/components/SelectableElevatedCard';
 
 const PageLayout = styled.div`
   min-height: 100vh;
@@ -96,38 +97,35 @@ const UploadRow = styled.div`
   }
 `;
 
-/**
- * Matches Dashboard `ClickableSpend` around SpendSummary: lift + soft shadow on hover.
- * Applied only to successfully parsed rows (`$warn` is false).
- */
-const StatementListRow = styled.div<{ $warn: boolean }>`
-  padding: 14px 16px;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-sizing: border-box;
-  border: ${(p) =>
-    p.$warn ? '1px solid rgba(229,161,0,0.4)' : '1px solid rgba(255,255,255,0.08)'};
-  background: ${(p) => (p.$warn ? 'rgba(229,161,0,0.04)' : 'transparent')};
-
-  ${(p) =>
-    !p.$warn &&
-    css`
-      cursor: pointer;
-      transition:
-        transform 0.25s ease,
-        box-shadow 0.25s ease;
-      &:hover {
-        transform: translateY(-3px) scale(1.01);
-        box-shadow: 0 8px 24px rgba(255, 255, 255, 0.06);
-      }
-      &:active {
-        transform: translateY(0) scale(0.99);
-        box-shadow: none;
-      }
-    `}
+/** Lift + soft shadow on hover for clickable (successfully parsed) statement rows. */
+const ClickableCardWrapper = styled.div`
+  cursor: pointer;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+  &:hover {
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 8px 24px rgba(255, 255, 255, 0.06);
+  }
+  &:active {
+    transform: translateY(0) scale(0.99);
+    box-shadow: none;
+  }
 `;
+
+const statementCardStyle: CSSProperties = {
+  padding: '14px 16px',
+  width: '100%',
+  maxWidth: 'none',
+  maxHeight: 'none',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 10,
+  backgroundColor: colorPalette.black[100],
+};
+
+const warnEdgeColors = { bottom: colorPalette.warning[500], right: 'rgba(229,161,0,0.45)' };
+const successEdgeColors = DEFAULT_ELEVATED_CARD_EDGE_COLORS;
 
 const PathDisplay = styled.span`
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
@@ -571,9 +569,10 @@ export function Statements() {
               const bankConfig = bankRowMeta(s);
 
               const warnBorder = isError || needsPassword;
+              const cardEdge = warnBorder ? warnEdgeColors : successEdgeColors;
 
-              return (
-                <StatementListRow key={s.id} $warn={warnBorder}>
+              const card = (
+                <SelectableElevatedCard key={warnBorder ? s.id : undefined} edgeColors={cardEdge} style={statementCardStyle}>
                   {needsPassword ? (
                     <Row style={statementBodyRowStyle}>
                       <Column style={statementLeftColStyle}>
@@ -840,7 +839,13 @@ export function Statements() {
                       </Row>
                     </div>
                   )}
-                </StatementListRow>
+                </SelectableElevatedCard>
+              );
+
+              return warnBorder ? (
+                <div key={s.id}>{card}</div>
+              ) : (
+                <ClickableCardWrapper key={s.id}>{card}</ClickableCardWrapper>
               );
             })}
           </div>

@@ -21,12 +21,34 @@ MILESTONE_SYNC_INTERVAL = 24 * 60 * 60  # 24 hours
 MILESTONE_SYNC_ENABLED = os.getenv("MILESTONE_SYNC_ENABLED", "true").lower() == "true"
 
 OFFER_PROVIDERS: Dict[str, Dict] = {
-    "hdfc_bank": {"enabled": True, "url": "https://www.hdfcbank.com/personal/pay/cards/credit-cards/credit-cards-offers"},
-    "icici_bank": {"enabled": True, "url": "https://www.icicibank.com/Personal-Banking/cards/credit-card/credit-card-offers"},
-    "axis_bank": {"enabled": True, "url": "https://www.axisbank.com/retail/cards/credit-card/offers"},
-    "sbicard": {"enabled": True, "url": "https://www.sbicard.com/en/personal/offers.page"},
-    "cardexpert": {"enabled": True, "url": "https://www.cardexpert.in/category/card-offers/"},
+    # Direct bank scrapers disabled: these sites are JS-rendered and return no offer data via plain HTTP
+    "hdfc_bank": {"enabled": False, "url": "https://www.hdfcbank.com/personal/pay/cards/credit-cards/credit-cards-offers"},
+    "icici_bank": {"enabled": False, "url": "https://www.icicibank.com/Personal-Banking/cards/credit-card/credit-card-offers"},
+    "axis_bank": {"enabled": False, "url": "https://www.axisbank.com/retail/cards/credit-card/offers"},
+    "sbicard": {"enabled": False, "url": "https://www.sbicard.com/en/personal/offers.page"},
+    # Old HTML scraper for cardexpert replaced by REST API provider below
+    "cardexpert": {"enabled": False, "url": "https://www.cardexpert.in/category/card-offers/"},
+    # cardexpert.in WordPress REST API — structured JSON, covers all major Indian banks
+    "cardexpert_api": {
+        "enabled": True,
+        "url": "https://www.cardexpert.in/wp-json/wp/v2/posts",
+        "per_page": 20,
+    },
 }
+
+# cardexpert.in WordPress category IDs per bank (verified via /wp-json/wp/v2/categories)
+CARDEXPERT_BANK_CATEGORIES: Dict[str, List[int]] = {
+    "hdfc":       [11, 473],   # HDFC Credit Cards, HDFC Bank
+    "icici":      [47, 475],   # ICICI Credit Cards, ICICI Bank
+    "axis":       [60, 472],   # Axis Credit Cards, Axis Bank
+    "sbi":        [43],        # SBI Credit Cards
+    "kotak":      [477],       # Kotak Mahindra Bank
+    "indusind":   [126, 497],  # IndusInd Credit Cards, IndusInd Bank
+    "idfc_first": [467],       # IDFC First Bank
+    "au":         [482],       # AU Small Finance Bank
+    "amex":       [16, 469],   # Amex Cards, American Express India
+}
+CARDEXPERT_OFFERS_CATEGORY: int = 134  # "Card Offers" — general offer posts (cross-bank)
 
 OFFER_CATEGORY_MAP: Dict[str, List[str]] = {
     "shopping": ["shopping", "ecommerce", "online shopping", "retail"],

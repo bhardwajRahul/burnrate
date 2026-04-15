@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/Navbar';
 import { Button, Typography, Tag, InputField, Row, Column } from '@cred/neopop-web/lib/components';
-import { SelectableElevatedCard as ElevatedCard } from '@/components/SelectableElevatedCard';
+import { SelectableElevatedCard as ElevatedCard, DEFAULT_ELEVATED_CARD_EDGE_COLORS } from '@/components/SelectableElevatedCard';
 import { mainColors, colorPalette } from '@cred/neopop-web/lib/primitives';
 import { FontType, FontWeights } from '@cred/neopop-web/lib/components/Typography/types';
 import { useMilestones, useCards } from '@/hooks/useApi';
@@ -106,10 +106,7 @@ const inputStyle = {
   boxSizing: 'border-box' as const,
 };
 
-const edgeAccent = {
-  bottom: colorPalette.rss[600],
-  right: colorPalette.rss[800],
-};
+const edgeAccent = DEFAULT_ELEVATED_CARD_EDGE_COLORS;
 
 const milestoneDropdownTrigger = {
   border: 'rgba(255,255,255,0.12)',

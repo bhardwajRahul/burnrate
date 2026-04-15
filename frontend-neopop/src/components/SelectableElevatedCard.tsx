@@ -16,7 +16,7 @@ const SelectableCardBody = styled.div`
 
 /** Default RSS plunk edges (matches bulk upload summary card). */
 export const DEFAULT_ELEVATED_CARD_EDGE_COLORS = {
-  bottom: colorPalette.rss[500],
+  bottom: colorPalette.rss[600],
   right: colorPalette.rss[800],
 } as const;
 
