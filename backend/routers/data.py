@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import zipfile
+import csv
 from pathlib import Path
 from typing import Optional
 
@@ -21,6 +22,21 @@ def cleanup_tmp(path: str):
         shutil.rmtree(path, ignore_errors=True)
     except Exception:
         pass
+
+def check_csv_safe(filepath: Path) -> bool:
+    """Basic check to prevent CSV injection by scanning for malicious prefixes."""
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                for cell in row:
+                    cell_stripped = cell.strip()
+                    # We check for '=' and '@'. We ignore '+' and '-' as they are common in financial data.
+                    if cell_stripped.startswith(('=', '@')):
+                        return False
+        return True
+    except Exception:
+        return False
 
 @router.post("/data/export")
 def export_data(background_tasks: BackgroundTasks, password: Optional[str] = Form(None)):
@@ -61,6 +77,25 @@ def import_data(file: UploadFile = File(...), password: Optional[str] = Form(Non
         
     tmp_dir = tempfile.mkdtemp()
     try:
+        MAX_EXTRACT_SIZE = 1024 * 1024 * 1024 # 1 GB
+        total_extracted_size = [0]
+        
+        def copy_with_limit(src, dst, initial_chunk=None):
+            if initial_chunk:
+                total_extracted_size[0] += len(initial_chunk)
+                if total_extracted_size[0] > MAX_EXTRACT_SIZE:
+                    raise HTTPException(status_code=400, detail="Zip bomb detected: Extraction size exceeds 1GB limit")
+                dst.write(initial_chunk)
+                
+            while True:
+                chunk = src.read(64 * 1024)
+                if not chunk:
+                    break
+                total_extracted_size[0] += len(chunk)
+                if total_extracted_size[0] > MAX_EXTRACT_SIZE:
+                    raise HTTPException(status_code=400, detail="Zip bomb detected: Extraction size exceeds 1GB limit")
+                dst.write(chunk)
+
         upload_path = Path(tmp_dir) / "uploaded.zip"
         with open(upload_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
@@ -98,8 +133,7 @@ def import_data(file: UploadFile = File(...), password: Optional[str] = Form(Non
                             # Magic Bytes for SQLite
                             if header != b"SQLite format 3\x00":
                                 raise HTTPException(status_code=400, detail="Invalid database file format")
-                            df.write(header)
-                            shutil.copyfileobj(sf, df)
+                            copy_with_limit(sf, df, initial_chunk=header)
                             
                     elif name.startswith("statements/"):
                         ext = os.path.splitext(name)[1].lower()
@@ -112,10 +146,14 @@ def import_data(file: UploadFile = File(...), password: Optional[str] = Form(Non
                                     # Magic Bytes for PDF
                                     if not header.startswith(b"%PDF-"):
                                         continue # Skip invalid pdfs
-                                    df.write(header)
-                                    shutil.copyfileobj(sf, df)
+                                    copy_with_limit(sf, df, initial_chunk=header)
                                 else:
-                                    shutil.copyfileobj(sf, df)
+                                    copy_with_limit(sf, df)
+                            
+                            # CSV Injection prevention check
+                            if ext == ".csv":
+                                if not check_csv_safe(target_path):
+                                    raise HTTPException(status_code=400, detail="Malicious CSV content detected (CSV Injection)")
                 except RuntimeError as e:
                     if 'password' in str(e).lower() or 'bad password' in str(e).lower():
                         raise HTTPException(status_code=400, detail="Invalid or missing password for encrypted backup")
@@ -130,36 +168,56 @@ def import_data(file: UploadFile = File(...), password: Optional[str] = Form(Non
             shutil.rmtree(backup_dir, ignore_errors=True)
         shutil.copytree(DATA_DIR, backup_dir)
         
-        # 4. Replace DB and Statements
-        # Dispose engine to close active DB connections
-        engine.dispose()
-        
-        db_file = DATA_DIR / "tuesday.db"
-        wal_file = DATA_DIR / "tuesday.db-wal"
-        shm_file = DATA_DIR / "tuesday.db-shm"
-        
-        if db_file.exists(): os.remove(db_file)
-        if wal_file.exists(): os.remove(wal_file)
-        if shm_file.exists(): os.remove(shm_file)
-        
-        shutil.copy(extract_dir / "tuesday.db", db_file)
-        
-        extracted_statements = extract_dir / "statements"
-        if extracted_statements.exists():
+        # 4. Replace DB and Statements with Rollback safety
+        try:
+            # Dispose engine to close active DB connections
+            engine.dispose()
+            
+            db_file = DATA_DIR / "tuesday.db"
+            wal_file = DATA_DIR / "tuesday.db-wal"
+            shm_file = DATA_DIR / "tuesday.db-shm"
+            
+            if db_file.exists(): os.remove(db_file)
+            if wal_file.exists(): os.remove(wal_file)
+            if shm_file.exists(): os.remove(shm_file)
+            
+            shutil.copy(extract_dir / "tuesday.db", db_file)
+            
+            extracted_statements = extract_dir / "statements"
+            if extracted_statements.exists():
+                if UPLOADS_DIR.exists():
+                    shutil.rmtree(UPLOADS_DIR, ignore_errors=True)
+                shutil.copytree(extracted_statements, UPLOADS_DIR)
+                
+            # 5. Check and clear watch_folder if missing
+            tmp_engine = create_engine(DATABASE_URL)
+            Session = sessionmaker(bind=tmp_engine)
+            with Session() as session:
+                settings = session.query(Settings).first()
+                if settings and settings.watch_folder:
+                    if not os.path.exists(settings.watch_folder):
+                        settings.watch_folder = None
+                        session.commit()
+            tmp_engine.dispose()
+            
+        except Exception as e:
+            # Rollback to backup
+            import logging
+            logging.getLogger(__name__).error("Import failed during replacement, rolling back to backup...")
+            db_file = DATA_DIR / "tuesday.db"
+            if db_file.exists(): os.remove(db_file)
+            
+            backup_db = backup_dir / "tuesday.db"
+            if backup_db.exists():
+                shutil.copy(backup_db, db_file)
+                
             if UPLOADS_DIR.exists():
                 shutil.rmtree(UPLOADS_DIR, ignore_errors=True)
-            shutil.copytree(extracted_statements, UPLOADS_DIR)
-            
-        # 5. Check and clear watch_folder if missing
-        tmp_engine = create_engine(DATABASE_URL)
-        Session = sessionmaker(bind=tmp_engine)
-        with Session() as session:
-            settings = session.query(Settings).first()
-            if settings and settings.watch_folder:
-                if not os.path.exists(settings.watch_folder):
-                    settings.watch_folder = None
-                    session.commit()
-        tmp_engine.dispose()
+            backup_statements = backup_dir / "statements"
+            if backup_statements.exists():
+                shutil.copytree(backup_statements, UPLOADS_DIR)
+                
+            raise HTTPException(status_code=500, detail="Import failed. Database rolled back to previous state.") from e
         
         return {"status": "success", "message": "Data imported successfully"}
     except Exception as e:
