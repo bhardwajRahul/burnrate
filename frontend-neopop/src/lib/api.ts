@@ -942,3 +942,44 @@ export async function getMilestoneDefinitions(): Promise<{
   const { data } = await api.get('/milestones/definitions');
   return data;
 }
+
+export async function exportData(password?: string): Promise<void> {
+  const formData = new FormData();
+  if (password) {
+    formData.append('password', password);
+  }
+  
+  const response = await api.post('/data/export', formData, {
+    responseType: 'blob',
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    timeout: 60000
+  });
+  
+  // Create a blob URL and trigger download
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', 'burnrate_backup.zip');
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+export async function importData(file: File, password?: string): Promise<{status: string, message: string}> {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (password) {
+    formData.append('password', password);
+  }
+  
+  const { data } = await api.post('/data/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    timeout: 120000 // 2 minutes for potentially large ZIPs
+  });
+  return data;
+}

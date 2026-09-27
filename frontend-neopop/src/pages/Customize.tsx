@@ -30,7 +30,7 @@ import {
 import type { Statement } from '@/lib/types';
 import type { CategoryResponse, TagDefinitionResponse, GmailStatusResponse } from '@/lib/api';
 import { toast } from '@/components/Toast';
-import { RefreshCw, Palette, Trash2, Tag as TagIcon, Check, AlertTriangle, MessageSquarePlus, Lock, Mail, Lightbulb, Calendar } from 'lucide-react';
+import { RefreshCw, Palette, Trash2, Tag as TagIcon, Check, AlertTriangle, MessageSquarePlus, Lock, Mail, Lightbulb, Calendar, Database } from 'lucide-react';
 import { colorPalette, mainColors } from '@cred/neopop-web/lib/primitives';
 import { CloseButton } from '@/components/CloseButton';
 import { TrashIconButton } from '@/components/TrashIconButton';
@@ -38,6 +38,7 @@ import { PlusIconButton } from '@/components/PlusIconButton';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { InsightsSettingsModal } from '@/components/InsightsSettingsModal';
 import { PaymentRemindersModal } from '@/components/PaymentRemindersModal';
+import { DataManagementModal } from '@/components/DataManagementModal';
 import styled from 'styled-components';
 
 const PageLayout = styled.div`
@@ -1769,6 +1770,7 @@ export function Customize() {
   const [gmailModalOpen, setGmailModalOpen] = useState(false);
   const [insightsModalOpen, setInsightsModalOpen] = useState(false);
   const [paymentRemindersModalOpen, setPaymentRemindersModalOpen] = useState(false);
+  const [dataModalOpen, setDataModalOpen] = useState(false);
 
   useEffect(() => {
     const g = searchParams.get('gmail');
@@ -1848,6 +1850,16 @@ export function Customize() {
             </Typography>
           </FeatureCard>
 
+          <FeatureCard onClick={() => setDataModalOpen(true)}>
+            <Database size={24} color={colorPalette.rss[500]} />
+            <Typography fontType={FontType.BODY} fontSize={16} fontWeight={FontWeights.SEMI_BOLD} color={mainColors.white}>
+              Data Export/Import
+            </Typography>
+            <Typography fontType={FontType.BODY} fontSize={13} fontWeight={FontWeights.REGULAR} color="rgba(255,255,255,0.5)">
+              Backup or restore your database and statements.
+            </Typography>
+          </FeatureCard>
+
           <FeatureCard onClick={() => window.open('https://github.com/pratik1235/burnrate/issues/new', '_blank')}>
             <MessageSquarePlus size={24} color={colorPalette.rss[500]} />
             <Typography fontType={FontType.BODY} fontSize={16} fontWeight={FontWeights.SEMI_BOLD} color={mainColors.white}>
@@ -1865,6 +1877,7 @@ export function Customize() {
         <DefineCategoriesModal open={categoriesModalOpen} onClose={() => setCategoriesModalOpen(false)} />
         <InsightsSettingsModal open={insightsModalOpen} onClose={() => setInsightsModalOpen(false)} />
         <PaymentRemindersModal open={paymentRemindersModalOpen} onClose={() => setPaymentRemindersModalOpen(false)} />
+        <DataManagementModal open={dataModalOpen} onClose={() => setDataModalOpen(false)} />
       </Content>
     </PageLayout>
   );

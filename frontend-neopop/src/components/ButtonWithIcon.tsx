@@ -86,8 +86,21 @@ export function ButtonWithIcon({
     ...rowStyleOverride,
   };
 
+  const defaultButtonStyle: CSSProperties = {
+    marginTop: 8,
+    background: 'none',
+    border: 'none',
+    alignSelf: 'flex-start',
+    maxWidth: 180,
+  };
+
+  const finalButtonStyle: CSSProperties = {
+    ...defaultButtonStyle,
+    ...(buttonProps.style || {}),
+  };
+
   return (
-    <Button {...buttonProps}>
+    <Button {...buttonProps} style={finalButtonStyle}>
       <Row
         alignItems={alignItems}
         justifyContent={justifyContent}
