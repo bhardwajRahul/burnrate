@@ -1,0 +1,6 @@
+framework module google_mlkit_smart_reply {
+  umbrella header "google_mlkit_smart_reply-umbrella.h"
+
+  export *
+  module * { export * }
+}

@@ -1,0 +1,53 @@
+Running `(cd /Users/pratik/.pub-cache/hosted/pub.dev/objective_c-9.5.0/; TMPDIR=/var/folders/t6/n83nbzbj1tb11gmv7h59y9z00000gn/T/ PATH=/Users/pratik/.gemini/antigravity-ide/bin:/Users/pratik/.local/bin:/Users/pratik/.antigravity-ide/antigravity-ide/bin:/opt/homebrew/opt/openjdk/bin:/opt/homebrew/opt/mysql@8.4/bin:/Users/pratik/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/Users/pratik/development/flutter/bin:/Users/pratik/development/flutter/bin HOME=/Users/pratik /Users/pratik/development/flutter/bin/cache/dart-sdk/bin/dart --packages=/Users/pratik/area51/burnrate/mobile/.dart_tool/package_config.json /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/objective_c/7ad245dadc/hook.dill --config=/Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/objective_c/7ad245dadc/input.json )`.
+INFO: 2026-09-26 16:36:59.258131: Using compiler /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang from BuildInput.cCompiler.cc.
+
+INFO: 2026-09-26 16:36:59.261403: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-darwin -mmacos-version-min=13 -c /Users/pratik/.pub-cache/hosted/pub.dev/objective_c-9.5.0/src/include/dart_api_dl.c -fpic -gline-tables-only -I src -o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/include/dart_api_dl.c.o
+
+INFO: 2026-09-26 16:36:59.262343: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-darwin -mmacos-version-min=13 -c /Users/pratik/.pub-cache/hosted/pub.dev/objective_c-9.5.0/src/objective_c.c -fpic -gline-tables-only -I src -o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.c.o
+
+INFO: 2026-09-26 16:36:59.262491: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/pratik/.pub-cache/hosted/pub.dev/objective_c-9.5.0/src/input_stream_adapter.m -fpic -gline-tables-only -I src -o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/input_stream_adapter.m.o
+
+INFO: 2026-09-26 16:36:59.262594: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/pratik/.pub-cache/hosted/pub.dev/objective_c-9.5.0/src/objective_c.m -fpic -gline-tables-only -I src -o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.m.o
+
+INFO: 2026-09-26 16:36:59.262690: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/pratik/.pub-cache/hosted/pub.dev/objective_c-9.5.0/src/observer.m -fpic -gline-tables-only -I src -o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/observer.m.o
+
+INFO: 2026-09-26 16:36:59.262786: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/pratik/.pub-cache/hosted/pub.dev/objective_c-9.5.0/src/ns_number.m -fpic -gline-tables-only -I src -o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/ns_number.m.o
+
+INFO: 2026-09-26 16:36:59.262877: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/pratik/.pub-cache/hosted/pub.dev/objective_c-9.5.0/src/protocol.m -fpic -gline-tables-only -I src -o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/protocol.m.o
+
+INFO: 2026-09-26 16:36:59.262970: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-darwin -mmacos-version-min=13 -x objective-c -fobjc-arc -c /Users/pratik/.pub-cache/hosted/pub.dev/objective_c-9.5.0/src/objective_c_bindings_generated.m -fpic -gline-tables-only -I src -o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c_bindings_generated.m.o
+
+INFO: 2026-09-26 16:36:59.461502: Generated /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.c.o
+
+INFO: 2026-09-26 16:36:59.461910: 
+INFO: 2026-09-26 16:36:59.461947: 
+INFO: 2026-09-26 16:36:59.461971: Generated /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/include/dart_api_dl.c.o
+
+INFO: 2026-09-26 16:36:59.462792: 
+INFO: 2026-09-26 16:36:59.462818: 
+INFO: 2026-09-26 16:36:59.462830: Generated /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/observer.m.o
+
+INFO: 2026-09-26 16:36:59.465326: 
+INFO: 2026-09-26 16:36:59.465349: 
+INFO: 2026-09-26 16:36:59.465360: Generated /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/protocol.m.o
+
+INFO: 2026-09-26 16:36:59.753712: 
+INFO: 2026-09-26 16:36:59.753764: 
+INFO: 2026-09-26 16:36:59.753778: Generated /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/ns_number.m.o
+
+INFO: 2026-09-26 16:36:59.764200: 
+INFO: 2026-09-26 16:36:59.764210: 
+INFO: 2026-09-26 16:36:59.764219: Generated /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.m.o
+
+ter.m.o
+
+INFO: 2026-09-26 16:36:59.799726: 
+INFO: 2026-09-26 16:36:59.799753: 
+INFO: 2026-09-26 16:36:59.799769: Generated /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c_bindings_generated.m.o
+
+INFO: 2026-09-26 16:36:59.800075: Running: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -shared -Wl,-encryptable -undefined dynamic_lookup -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk -target arm64-apple-darwin -mmacos-version-min=13 /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/include/dart_api_dl.c.o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.c.o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/input_stream_adapter.m.o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c.m.o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/observer.m.o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/ns_number.m.o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/protocol.m.o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/obj/src/objective_c_bindings_generated.m.o -o /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/objective_c.dylib
+
+INFO: 2026-09-26 16:36:59.921552: 
+INFO: 2026-09-26 16:36:59.921662: 
+INFO: 2026-09-26 16:36:59.921695: Generated /Users/pratik/area51/burnrate/mobile/.dart_tool/hooks_runner/shared/objective_c/build/7ad245dadc/objective_c.dylib
+

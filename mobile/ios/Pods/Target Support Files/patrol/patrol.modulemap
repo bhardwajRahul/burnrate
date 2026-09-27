@@ -1,0 +1,6 @@
+framework module patrol {
+  umbrella header "patrol-umbrella.h"
+
+  export *
+  module * { export * }
+}
