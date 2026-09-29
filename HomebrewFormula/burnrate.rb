@@ -66,6 +66,21 @@ class Burnrate < Formula
       (site_packages/"homebrew-#{pkg}.pth").write homebrew_sp.to_s
     end
 
+    # -------------------------------------------------------------------------
+    # HIDE SITE-PACKAGES FROM HOMEBREW'S LINKAGE SCANNER
+    # -------------------------------------------------------------------------
+    # Homebrew's fix_dynamic_linkage phase scans the Cellar for Mach-O binaries
+    # and rewrites their rpaths. On Apple Silicon, this modification breaks the
+    # original pip-provided adhoc signatures. If a background IDE language server
+    # scans the file while the signature is broken, the macOS AMFI subsystem
+    # permanently caches that path as invalid (SIGKILL), even if we re-sign it later.
+    # Since pip wheels already have valid load commands, we simply tar the
+    # directory so Homebrew ignores it completely, preserving the original signatures.
+    cd libexec/"lib/python3.13" do
+      system "tar", "-cf", "site-packages.tar", "site-packages"
+      rm_rf "site-packages"
+    end
+
     cd "frontend-neopop" do
       system "npm", "ci"
       system "npm", "run", "build"
@@ -109,27 +124,14 @@ class Burnrate < Formula
     # linker-signed signature with a fresh adhoc signature that has
     # correct page hashes for the modified binary.
     # ---------------------------------------------------------------
-    site_packages = libexec/"lib/python3.13/site-packages"
-    native_exts = Dir[site_packages/"**/*.so"] + Dir[site_packages/"**/*.dylib"]
-    ohai "Re-signing #{native_exts.size} native extensions for ARM64 code signature validity"
-    # Create a staging directory outside of site-packages so the IDE language server
-    # doesn't scan the files while they are being written (which poisons the kernel cache).
-    staging_dir = libexec/"codesign_staging"
-    staging_dir.mkpath
-
-    native_exts.each do |ext|
-      staged_file = staging_dir/File.basename(ext)
-      # Copy to staging directory
-      FileUtils.cp ext, staged_file
-      # Sign the complete file in the staging directory
-      system "codesign", "--force", "--sign", "-", staged_file
-      # Atomically move it over the original file. Since it's on the same volume,
-      # this is an atomic rename(2). The IDE will only see the file once it's complete,
-      # fully signed, and has a brand new inode, preventing all kernel cache poisoning.
-      FileUtils.mv staged_file, ext
+    # Restore the site-packages directory that we hid during the install phase.
+    # The files emerge with their original, perfectly valid pip adhoc signatures.
+    cd libexec/"lib/python3.13" do
+      if File.exist?("site-packages.tar")
+        system "tar", "-xf", "site-packages.tar"
+        rm "site-packages.tar"
+      end
     end
-    
-    staging_dir.rmtree
   end
 
   service do
