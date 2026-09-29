@@ -114,6 +114,11 @@ class Burnrate < Formula
     ohai "Re-signing #{native_exts.size} native extensions for ARM64 code signature validity"
     native_exts.each do |ext|
       system "codesign", "--force", "--sign", "-", ext
+      # Recreate the file to generate a new inode and flush the macOS kernel
+      # code signature cache (cs_validate_page), preventing spurious SIGKILLs.
+      tmp = "#{ext}.tmp"
+      FileUtils.cp ext, tmp
+      FileUtils.mv tmp, ext
     end
   end
 
