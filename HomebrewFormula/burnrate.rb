@@ -91,6 +91,30 @@ class Burnrate < Formula
 
   def post_install
     (var/"burnrate").mkpath
+
+    # ---------------------------------------------------------------
+    # Re-sign every native extension (.so / .dylib) inside the venv.
+    #
+    # Homebrew's fix_dynamic_linkage rewrites @rpath load commands to
+    # absolute Cellar paths *after* the original linker-signed adhoc
+    # code signature was created.  This invalidates the page hashes
+    # embedded in the signature.  On ARM64 macOS with SIP the kernel
+    # validates page hashes on first load and kills the process with
+    # SIGKILL (Code Signature Invalid / Invalid Page) if they don't
+    # match.  The crash typically manifests only on *other* machines
+    # (or after a reboot) because the installing machine still has
+    # the pages cached.
+    #
+    # Signing with `codesign --force --sign -` replaces the stale
+    # linker-signed signature with a fresh adhoc signature that has
+    # correct page hashes for the modified binary.
+    # ---------------------------------------------------------------
+    site_packages = libexec/"lib/python3.13/site-packages"
+    native_exts = Dir[site_packages/"**/*.so"] + Dir[site_packages/"**/*.dylib"]
+    ohai "Re-signing #{native_exts.size} native extensions for ARM64 code signature validity"
+    native_exts.each do |ext|
+      system "codesign", "--force", "--sign", "-", ext
+    end
   end
 
   service do
