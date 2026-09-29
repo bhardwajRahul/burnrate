@@ -112,14 +112,24 @@ class Burnrate < Formula
     site_packages = libexec/"lib/python3.13/site-packages"
     native_exts = Dir[site_packages/"**/*.so"] + Dir[site_packages/"**/*.dylib"]
     ohai "Re-signing #{native_exts.size} native extensions for ARM64 code signature validity"
+    # Create a staging directory outside of site-packages so the IDE language server
+    # doesn't scan the files while they are being written (which poisons the kernel cache).
+    staging_dir = libexec/"codesign_staging"
+    staging_dir.mkpath
+
     native_exts.each do |ext|
-      system "codesign", "--force", "--sign", "-", ext
-      # Recreate the file to generate a new inode and flush the macOS kernel
-      # code signature cache (cs_validate_page), preventing spurious SIGKILLs.
-      tmp = "#{ext}.tmp"
-      FileUtils.cp ext, tmp
-      FileUtils.mv tmp, ext
+      staged_file = staging_dir/File.basename(ext)
+      # Copy to staging directory
+      FileUtils.cp ext, staged_file
+      # Sign the complete file in the staging directory
+      system "codesign", "--force", "--sign", "-", staged_file
+      # Atomically move it over the original file. Since it's on the same volume,
+      # this is an atomic rename(2). The IDE will only see the file once it's complete,
+      # fully signed, and has a brand new inode, preventing all kernel cache poisoning.
+      FileUtils.mv staged_file, ext
     end
+    
+    staging_dir.rmtree
   end
 
   service do
